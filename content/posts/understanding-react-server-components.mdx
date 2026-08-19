@@ -1,0 +1,114 @@
+---
+title: "理解 React 服务端组件（RSC）"
+date: "2025-08-05"
+excerpt: "深入 React 服务端组件的渲染模型、数据获取方式，以及与客户端组件的协作模式。"
+tags: ["react", "nextjs", "rsc"]
+---
+
+# 理解 React 服务端组件（RSC）
+
+服务端组件（Server Components）是 React 架构的重大演进。它在服务端渲染，不打包到客户端 JS bundle 中。
+
+## 渲染模型
+
+传统 SPA 将所有组件打包发送到浏览器，在客户端渲染。RSC 则在服务端完成渲染，只发送 HTML 和最少的 JS：
+
+```tsx
+// 这个组件不会出现在客户端 bundle 中
+import { db } from "@/lib/db";
+
+export default async function PostList() {
+  // 直接访问数据库，无需 API 层
+  const posts = await db.post.findMany({
+    orderBy: { date: "desc" },
+    take: 10,
+  });
+
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## 与客户端组件协作
+
+服务端组件可以导入并渲染客户端组件，但反过来不行——客户端组件不能直接导入服务端组件。
+
+```tsx
+// SearchBox.tsx — 客户端组件
+"use client";
+import { useState } from "react";
+
+export function SearchBox() {
+  const [query, setQuery] = useState("");
+  return <input value={query} onChange={(e) => setQuery(e.target.value)} />;
+}
+```
+
+```tsx
+// page.tsx — 服务端组件，渲染客户端组件
+import { SearchBox } from "./SearchBox";
+import { db } from "@/lib/db";
+
+export default async function Page() {
+  const posts = await db.post.findMany();
+  return (
+    <>
+      <SearchBox />
+      <PostList posts={posts} />
+    </>
+  );
+}
+```
+
+## children 传递模式
+
+如果客户端组件需要包裹服务端组件内容，用 `children` prop：
+
+```tsx
+// ClientWrapper.tsx
+"use client";
+import { useState } from "react";
+
+export function ClientWrapper({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button onClick={() => setOpen(!open)}>切换</button>
+      {open && children}
+    </div>
+  );
+}
+```
+
+```tsx
+// page.tsx — 服务端组件内容通过 children 传入
+import { ClientWrapper } from "./ClientWrapper";
+
+export default function Page() {
+  return (
+    <ClientWrapper>
+      {/* 这里的内容在服务端渲染，不受 ClientWrapper 的 "use client" 影响 */}
+      <ServerComponent />
+    </ClientWrapper>
+  );
+}
+```
+
+## 何时用哪种
+
+| 场景 | 选择 |
+|------|------|
+| 读数据库、文件系统 | 服务端组件 |
+| 需要交互（事件、状态） | 客户端组件 |
+| 使用浏览器 API（window、localStorage） | 客户端组件 |
+| 展示静态内容 | 服务端组件 |
+| 重依赖库（图表、编辑器） | 服务端组件（减少 bundle） |
+
+## 小结
+
+RSC 的核心价值：减少客户端 JS、直接访问后端资源、SEO 友好。理解服务端/客户端边界是掌握 App Router 的关键。

@@ -1,0 +1,106 @@
+---
+title: "Next.js 14 App Router 快速上手"
+date: "2025-08-08"
+excerpt: "了解 Next.js 14 App Router 的项目结构、路由约定、以及服务端组件与客户端组件的核心区别。"
+tags: ["nextjs", "react"]
+---
+
+# Next.js 14 App Router 快速上手
+
+Next.js 14 的 App Router 带来了全新的路由模型，基于文件系统约定，默认采用 React 服务端组件（RSC）。本文梳理核心概念。
+
+## 项目结构
+
+App Router 的路由基于 `app/` 目录下的文件结构：
+
+```
+app/
+├── layout.tsx        # 根布局（必需）
+├── page.tsx          # 首页路由 /
+├── about/
+│   └── page.tsx      # /about 路由
+└── posts/
+    └── [slug]/
+        └── page.tsx  # 动态路由 /posts/:slug
+```
+
+- `page.tsx` 定义路由 UI，是唯一能让路由可访问的文件
+- `layout.tsx` 定义共享布局，嵌套布局会包裹子路由
+- `[slug]` 是动态段，方括号包裹参数名
+
+## 服务端组件 vs 客户端组件
+
+App Router 默认所有组件都是**服务端组件**。需要交互（useState、onClick 等）时，在文件顶部声明 `"use client"`。
+
+```tsx
+// 服务端组件（默认）：可直接 async，直接读数据库/文件系统
+export default async function ServerComponent() {
+  const data = await fetch("https://api.example.com/data");
+  const json = await data.json();
+  return <div>{json.title}</div>;
+}
+```
+
+```tsx
+// 客户端组件：需要 "use client" 指令
+"use client";
+
+import { useState } from "react";
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      点击了 {count} 次
+    </button>
+  );
+}
+```
+
+## 数据获取
+
+服务端组件中直接 `await` 异步操作即可，无需 `getServerSideProps`：
+
+```tsx
+// 请求时获取（静态生成）
+export default async function Page() {
+  const res = await fetch("https://api.example.com/posts", {
+    cache: "force-cache", // 默认行为，构建时获取
+  });
+  const posts = await res.json();
+  return <PostList posts={posts} />;
+}
+```
+
+```tsx
+// 每次请求都重新获取
+export const dynamic = "force-dynamic";
+
+export default async function Page() {
+  const res = await fetch("https://api.example.com/latest", {
+    cache: "no-store",
+  });
+  const data = await res.json();
+  return <div>{data.content}</div>;
+}
+```
+
+## 静态参数生成
+
+用 `generateStaticParams` 预生成动态路由的静态页面：
+
+```tsx
+export function generateStaticParams() {
+  return posts.map((post) => ({
+    slug: post.slug,
+  }));
+}
+
+export default function PostPage({ params }: { params: { slug: string } }) {
+  return <h1>{params.slug}</h1>;
+}
+```
+
+## 小结
+
+App Router 的核心改变：服务端组件为默认、文件即路由、布局可嵌套。掌握这三点，就能顺畅地在 App Router 模式下开发。

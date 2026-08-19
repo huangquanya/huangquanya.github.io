@@ -1,0 +1,104 @@
+/* === Tailwind v4 入口 === */
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* 声明 class-based 深色模式（配合 next-themes 的 attribute="class"） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* === 自定义主题 token === */
+@theme {
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* === 全局基础样式 === */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white text-gray-900 antialiased;
+}
+
+.dark body {
+  @apply bg-gray-950 text-gray-100;
+}
+
+/* 文章正文链接颜色 */
+.prose :where(a):not(:where([class~="not-prose"] *)) {
+  color: var(--color-primary);
+  text-decoration-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+.prose :where(a):not(:where([class~="not-prose"] *)):hover {
+  color: var(--color-primary-dark);
+}
+
+/* === rehype-pretty-code 双主题切换（核心） ===
+ * 配置 theme: { light, dark } 后，每个 token 生成 --shiki-light 与 --shiki-dark 两套变量。
+ * 通过 .dark 前缀切换，无需重新渲染代码块。
+ * 注意：用 [data-theme] 而非 [data-theme*=" "]，避免 cssnano 选择器解析器对空格属性值的 bug。
+ */
+
+/* 浅色模式：使用 --shiki-light 变量 */
+code[data-theme],
+code[data-theme] span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+
+/* 深色模式：使用 --shiki-dark 变量 */
+.dark code[data-theme],
+.dark code[data-theme] span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}
+
+/* 代码块容器 */
+pre {
+  @apply overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm leading-relaxed;
+}
+.dark pre {
+  @apply border-gray-800 bg-gray-900;
+}
+
+/* 行内代码 */
+:not(pre) > code {
+  @apply rounded bg-gray-100 px-1.5 py-0.5 text-[0.875em] font-medium;
+}
+.dark :not(pre) > code {
+  @apply bg-gray-800 text-gray-200;
+}
+
+/* rehype-pretty-code 行高亮 */
+[data-line] {
+  @apply px-4 -mx-4 border-l-2 border-transparent;
+}
+[data-highlighted-line] {
+  @apply bg-blue-500/10 border-blue-500;
+}
+
+/* 代码块语言标签 */
+[data-rehype-pretty-code-figure] {
+  @apply relative;
+}
+[data-rehype-pretty-code-title] {
+  @apply rounded-t-lg border-b border-gray-200 bg-gray-100 px-4 py-2 text-xs font-medium text-gray-600;
+}
+.dark [data-rehype-pretty-code-title] {
+  @apply border-gray-800 bg-gray-800 text-gray-400;
+}
+[data-rehype-pretty-code-title] + pre {
+  @apply rounded-t-none;
+}
+
+/* 代码块行号 */
+[data-line-numbers] {
+  counter-reset: line;
+}
+[data-line-numbers] > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  @apply mr-4 inline-block w-4 text-right text-gray-400;
+}

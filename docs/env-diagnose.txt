@@ -1,0 +1,16 @@
+﻿=== node 来源 ===
+C:\Users\晓晓老公\.workbuddy\binaries\node\versions\22.22.2\node.exe
+=== node -v ===
+v22.22.2
+
+=== nvm 来源 ===
+=== PATH 中 node/nvm ===
+C:\Users\晓晓老公\.workbuddy\binaries\node\versions\22.22.2
+=== D:\nodejs 存在? ===
+False
+=== C:\nodejs 存在? ===
+False
+=== NVM_HOME ===
+=== NVM_SYMLINK ===
+=== APPDATA nvm ===
+False

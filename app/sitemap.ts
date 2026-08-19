@@ -2,6 +2,9 @@ import type { MetadataRoute } from "next";
 import { getAllPosts, getAllTags } from "@/lib/posts";
 import { siteConfig, absoluteUrl } from "@/lib/site";
 
+// 静态导出要求显式声明为静态路由
+export const dynamic = "force-static";
+
 // 动态生成 sitemap.xml
 // 包含：静态页面 + 所有文章 + 所有标签页
 export default function sitemap(): MetadataRoute.Sitemap {

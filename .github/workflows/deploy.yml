@@ -26,9 +26,12 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install dependencies
-        # 用 npm install 而非 npm ci：lock 文件在 Windows 生成，
-        # 缺少 lightningcss 的 Linux 平台二进制条目，npm ci 会漏装导致构建失败
-        run: npm install --no-audit --no-fund
+        # lightningcss 原生二进制跨平台 bug（npm/cli#4828）：
+        # lock 在 Windows 生成缺少 Linux 平台条目，npm 无法正确补装，
+        # 官方解法是删除 lock 后重新解析安装
+        run: |
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
       - name: Build
         run: npm run build
       - name: Upload artifact

@@ -1,0 +1,272 @@
+---
+title: "Python循环、切片、元组：列表的进阶操作"
+date: "2026-06-10"
+excerpt: "用 for 循环遍历列表、range 创建数字列表，掌握切片和元组这些进阶操作。"
+tags: ["Python", "Python入门"]
+---
+
+> 学会了列表的基本操作，这一章往前走一步——学会用 `for` 循环把列表里的元素一个个拿出来处理。这是 Python 里最常用的语法之一，学完你就能真正"批量处理"数据了。
+
+## 用 for 循环遍历列表
+
+列表最常见的操作是什么？把里面的每个元素都处理一遍。Python 用 `for` 循环来实现：
+
+```python
+magicians = ['alice', 'david', 'carolina']
+
+for magician in magicians:
+    print(magician.title() + ", that was a great trick!")
+    print("I can't wait to see your next trick, " + magician.title() + ".\n")
+
+print("Thank you, everyone. That was a great magic show!")
+```
+
+运行结果：
+
+```
+Alice, that was a great trick!
+I can't wait to see your next trick, Alice.
+
+David, that was a great trick!
+I can't wait to see your next trick, David.
+
+Carolina, that was a great trick!
+I can't wait to see your next trick, Carolina.
+
+Thank you, everyone. That was a great magic show!
+```
+
+注意看最后一句 `Thank you...` 没有缩进——它不在循环里，所以只执行一次。这就是 Python 缩进的意义：**缩进决定代码属于哪里**。
+
+### 变量命名的小建议
+
+```python
+# 列表用复数，元素用单数
+cats = ['lion', 'tiger', 'panther']
+for cat in cats:
+    print(cat)
+```
+
+一眼就能看出 `cats` 是列表、`cat` 是一个元素，代码可读性更好。
+
+## 缩进错误：Python最常见的坑
+
+Python 用缩进来标记代码块，所以缩进错误是新手最常踩的坑。来看5种典型错误：
+
+### 1. 忘记缩进
+
+```python
+for cat in cats:
+print(cat)   # ❌ IndentationError
+```
+
+for 循环后的代码必须缩进。
+
+### 2. 循环内多条语句漏了缩进
+
+```python
+for cat in cats:
+    print(cat)
+print(cat)   # ❌ 这行本应在循环内，但因为没缩进变成只执行最后一次
+```
+
+### 3. 不必要的缩进
+
+```python
+    print("hello")   # ❌ 在没有缩进上下文的地方缩进了
+```
+
+### 4. 循环后多余的缩进
+
+```python
+for cat in cats:
+    print(cat)
+
+    print("Done")   # ❌ 本应在循环外，因为多了缩进变成循环的一部分
+```
+
+### 5. 漏掉冒号
+
+```python
+for cat in cats   # ❌ 少了冒号
+    print(cat)
+```
+
+## 创建数值列表：range() 和列表解析
+
+### range() 生成数字序列
+
+```python
+for value in range(1, 6):
+    print(value)   # 1, 2, 3, 4, 5
+```
+
+**注意**：`range(1, 6)` 生成的是 1 到 5，**不包含 6**——Python 里"差一行为"是常事。
+
+### 转换成列表
+
+```python
+numbers = list(range(1, 6))
+print(numbers)   # [1, 2, 3, 4, 5]
+```
+
+### 步长：隔几个数取一个
+
+```python
+even_numbers = list(range(2, 11, 2))
+print(even_numbers)   # [2, 4, 6, 8, 10]
+# 第三个参数2表示"每次跳2步"
+```
+
+### 统计函数
+
+```python
+digits = [1, 2, 3, 4, 5]
+
+print(min(digits))   # 1  最小值
+print(max(digits))   # 5  最大值
+print(sum(digits))   # 15  总和
+```
+
+### 列表解析：一行生成整个列表
+
+这是 Python 的招牌写法，比写循环再 append 简洁得多：
+
+```python
+# 传统写法
+squares = []
+for value in range(1, 11):
+    squares.append(value ** 2)
+
+# 列表解析（一行搞定）
+squares = [value**2 for value in range(1, 11)]
+print(squares)   # [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
+```
+
+## 使用列表的一部分：切片
+
+切片就是取列表的"一段"，语法是 `列表[起点:终点]`：
+
+```python
+players = ['charles', 'martina', 'michael', 'florence', 'eli']
+
+print(players[0:3])    # ['charles', 'martina', 'michael']  前三个
+print(players[:4])      # 前四个（省略起点，默认从0开始）
+print(players[2:])      # ['michael', 'florence', 'eli']     第三到最后
+print(players[-3:])     # ['michael', 'florence', 'eli']     最后三个
+```
+
+### 遍历切片
+
+```python
+for player in players[:3]:
+    print(player.title())
+# 只处理前三名玩家
+```
+
+### 复制列表（必须用切片！）
+
+```python
+my_foods = ['pizza', 'burger', 'sushi']
+
+# 正确：用切片复制，两者是独立列表
+friend_foods = my_foods[:]
+
+# 错误：两个变量指向同一个列表！
+friend_foods = my_foods
+```
+
+区分方法：修改 `my_foods`，看 `friend_foods` 变不变——变了就是错误做法。
+
+## 元组：不可变的列表
+
+列表可以随便改，但有时候你不想数据被改——比如屏幕分辨率、游戏窗口大小。这种场景用**元组**。
+
+```python
+dimensions = (200, 50)
+
+print(dimensions[0])   # 200
+print(dimensions[1])   # 50
+```
+
+元组用圆括号 `()`，**不能修改元素**：
+
+```python
+dimensions[0] = 250   # ❌ TypeError!
+```
+
+但可以重新给元组变量**赋值**（整个换掉）：
+
+```python
+dimensions = (400, 100)   # ✅ 重新赋值，可以
+```
+
+元组也可以用 for 循环遍历：
+
+```python
+for dimension in dimensions:
+    print(dimension)
+```
+
+## PEP 8：代码格式规范
+
+Python 有一套官方的代码风格指南，叫 **PEP 8**。记住这几个核心要点：
+
+- 每级缩进用 **4个空格**（不用 Tab）
+- 每行不超过 **80个字符**
+- 运算符前后、逗号后加空格，如 `squares = [x**2 for x in range(1, 11)]`
+- 空行合理分隔代码的不同部分
+
+遵守 PEP 8 不是强制的，但能让你的代码更易读，也更"Pythonic"。
+
+---
+
+## 📝 章后习题
+
+**4-1 比萨**
+创建喜欢的比萨列表，用 for 循环打印每种比萨的名称，再打印包含比萨名称的句子，最后在循环外添加一句"我有多喜欢比萨"。
+
+**4-2 动物**
+创建动物列表，用 for 循环打印每种动物名称及一个句子，最后指出这些动物的共同之处。
+
+**4-3 数到20**
+用 for 循环打印数字 1 到 20。
+
+**4-4 一百万**
+创建一个包含 1 到 1,000,000 的列表，用 for 循环全部打印出来。
+
+**4-5 计算总和**
+使用 `min()`、`max()`、`sum()` 处理 1 到 1,000,000 的数字列表，验证结果正确。
+
+**4-6 奇数**
+用 `range()` 的步长参数创建 1 到 20 的奇数列表，用 for 循环打印。
+
+**4-7 3的倍数**
+创建 3 到 30 内能被 3 整除的数字列表，用 for 循环打印。
+
+**4-8 立方**
+创建前 10 个整数（1~10）的立方列表，用 for 循环打印。
+
+**4-9 立方解析**
+用列表解析生成前 10 个整数的立方列表。
+
+**4-10 切片练习**
+对一个列表：用切片打印前三个、中间三个、末尾三个元素。
+
+**4-11 我的比萨和你的比萨**
+创建比萨列表的副本到 `friend_pizzas`，原列表加一种新比萨，副本也加一种，核实两者是独立列表。
+
+**4-12 使用多个循环**
+对两个列表分别用 for 循环打印。
+
+**4-13 自助餐**
+创建包含五种食品的元组，用 for 循环打印。尝试修改一个元素（验证报错），然后重新给元组赋值并打印新内容。
+
+**4-14 PEP 8**
+访问 https://python.org/dev/peps/pep-0008/ 阅读格式设置指南。
+
+---
+
+下期预告：第5章讲 if 语句——如何让你的程序做判断？当某个条件满足时执行特定代码，这才是"智能"程序的开始。🔋
+
+*📖 内容整理自《Python编程：从入门到实践（第3版）》第4章*

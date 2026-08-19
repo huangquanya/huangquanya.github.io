@@ -1,0 +1,444 @@
+---
+title: "Pydantic数据验证：从入门到精通的完整指南"
+date: "2026-08-09"
+excerpt: "详解四种字段验证器与模型验证器，掌握跨字段验证、错误处理和 ValidationInfo 上下文用法。"
+tags: ["Python", "Pydantic"]
+---
+
+说实话，数据验证这事儿我以前一直觉得挺烦的。要写一堆if判断，检查这个字段是不是空，那个值是不是合法，格式对不对。代码里到处都是try-except，看着就头大。
+
+后来用了Pydantic的验证器，才发现原来验证可以写得这么优雅。而且不仅仅是优雅，还特别强大，能处理各种复杂的验证场景。
+
+今天我就把压箱底的验证技巧都掏出来分享给你。
+
+## 01 字段验证器（Field Validators）：四种类型全解析
+
+Pydantic提供了四种验证器类型，每种都有自己的用武之地。
+
+### 验证器类型总览
+
+| 类型 | 说明 | 执行时机 |
+|------|------|----------|
+| **After** | 在Pydantic内部验证之后运行 | 内部验证完成后 |
+| **Before** | 在内部解析和验证之前运行 | 内部验证之前 |
+| **Plain** | 执行后立即终止验证，不进行后续验证 | 替代内部验证 |
+| **Wrap** | 包裹其他验证逻辑，可选择是否调用handler | 全程控制 |
+
+### 01.1 After 验证器（最常用）
+
+这是最常用的验证器类型，在Pydantic完成基本类型转换后运行：
+
+```python
+from typing import Annotated
+from pydantic import AfterValidator, BaseModel, field_validator
+
+def is_even(value: int) -> int:
+    if value % 2 == 1:
+        raise ValueError(f'{value} 不是偶数')
+    return value
+
+# 方法1：使用 Annotated
+class Model1(BaseModel):
+    number: Annotated[int, AfterValidator(is_even)]
+
+# 方法2：使用装饰器（推荐）
+class Model2(BaseModel):
+    number: int
+    
+    @field_validator('number')  # mode='after' 是默认值
+    @classmethod
+    def is_even(cls, value: int) -> int:
+        if value % 2 == 1:
+            raise ValueError(f'{value} 不是偶数')
+        return value
+
+# 测试
+m = Model2(number=2)  # 成功
+try:
+    Model2(number=3)  # 失败：抛出 ValidationError
+except Exception as e:
+    print(e)
+```
+
+**After验证器的特点**：
+- 在类型转换完成后运行
+- 接收的是已经转换后的值
+- 可以访问其他字段的值（通过ValidationInfo）
+- 最适合做业务逻辑验证
+
+### 01.2 Before 验证器
+
+在内部解析和验证之前运行，可以用来预处理数据：
+
+```python
+from typing import Any
+from pydantic import BaseModel, field_validator
+
+class Model(BaseModel):
+    numbers: list[int]
+
+    @field_validator('numbers', mode='before')
+    @classmethod
+    def ensure_list(cls, value: Any) -> Any:
+        if not isinstance(value, list):
+            return [value]  # 单个值转换为列表
+        return value
+
+m = Model(numbers=1)      # 成功：自动转换为 [1]
+m = Model(numbers=[1, 2]) # 成功
+```
+
+**Before验证器的典型场景**：
+- 数据格式转换（比如字符串转列表）
+- 缺失值填充
+- 数据清洗
+- 处理API返回的不规范数据
+
+### 01.3 Wrap 验证器（高级玩法）
+
+最强大的验证器，可以完全控制验证流程：
+
+```python
+from pydantic import BaseModel, Field, field_validator, ValidationError
+
+class Model(BaseModel):
+    my_string: Annotated[str, Field(max_length=5)]
+
+    @field_validator('my_string', mode='wrap')
+    @classmethod
+    def truncate(cls, value: Any, handler) -> str:
+        try:
+            return handler(value)  # 调用默认验证
+        except ValidationError as err:
+            if err.errors()[0]['type'] == 'string_too_long':
+                return handler(value[:5])  # 截断后重试
+            raise
+
+m = Model(my_string='hello world')  # 自动截断为 'hello'
+print(m.my_string)  # 输出: hello
+```
+
+**Wrap验证器的威力**：
+- 可以捕获验证错误并处理
+- 可以选择是否调用handler
+- 能实现自动修复（比如截断）
+- 适合需要容错的场景
+
+### 01.4 同时验证多个字段
+
+```python
+from pydantic import BaseModel, field_validator
+
+class User(BaseModel):
+    username: str
+    email: str
+
+    @field_validator('username', 'email')  # 同时验证两个字段
+    @classmethod
+    def not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError('不能为空')
+        return value
+
+# 测试
+user = User(username='张三', email='zhangsan@example.com')  # 成功
+try:
+    User(username='  ', email='test@example.com')  # 失败
+except Exception as e:
+    print(e)
+```
+
+## 02 模型验证器（Model Validators）：跨字段验证
+
+当需要验证多个字段之间的关系时，模型验证器就派上用场了。
+
+### 2.1 After 验证器
+
+```python
+from typing_extensions import Self
+from pydantic import BaseModel, model_validator
+
+class UserModel(BaseModel):
+    username: str
+    password: str
+    password_repeat: str
+
+    @model_validator(mode='after')
+    def check_passwords_match(self) -> Self:
+        if self.password != self.password_repeat:
+            raise ValueError('两次密码不一致')
+        return self  # 必须返回 self
+
+# 测试
+user = UserModel(
+    username='张三',
+    password='123456',
+    password_repeat='123456'
+)  # 成功
+
+try:
+    UserModel(
+        username='张三',
+        password='123456',
+        password_repeat='654321'
+    )  # 失败
+except Exception as e:
+    print(e)  # 两次密码不一致
+```
+
+### 2.2 Before 验证器
+
+```python
+from typing import Any
+from pydantic import BaseModel, model_validator
+
+class UserModel(BaseModel):
+    username: str
+
+    @model_validator(mode='before')
+    @classmethod
+    def check_card_number_not_present(cls, data: Any) -> Any:
+        if isinstance(data, dict) and 'card_number' in data:
+            raise ValueError("不应包含 'card_number' 字段")
+        return data
+
+# 测试
+user = UserModel(username='张三')  # 成功
+try:
+    UserModel(username='张三', card_number='1234')  # 失败
+except Exception as e:
+    print(e)
+```
+
+## 03 错误处理：优雅地处理验证失败
+
+### 3.1 捕获验证错误
+
+```python
+from pydantic import BaseModel, ValidationError
+
+class User(BaseModel):
+    id: int
+    name: str
+
+try:
+    user = User(id='not_an_int', name='John')
+except ValidationError as e:
+    print(e.errors())
+    # [
+    #   {
+    #     'type': 'int_parsing',
+    #     'loc': ('id',),
+    #     'msg': '输入应为有效的整数',
+    #     'input': 'not_an_int',
+    #   }
+    # ]
+```
+
+**ValidationError的结构**：
+- `type`：错误类型
+- `loc`：错误位置（字段路径）
+- `msg`：错误消息
+- `input`：原始输入值
+
+### 3.2 自定义错误信息
+
+```python
+from pydantic_core import PydanticCustomError
+from pydantic import BaseModel, field_validator
+
+class Model(BaseModel):
+    x: int
+
+    @field_validator('x', mode='after')
+    @classmethod
+    def validate_x(cls, v: int) -> int:
+        if v % 42 == 0:
+            raise PydanticCustomError(
+                'the_answer_error',
+                '{number} 是答案！',
+                {'number': v},
+            )
+        return v
+
+# 测试
+try:
+    Model(x=42)
+except Exception as e:
+    print(e)  # 42 是答案！
+```
+
+### 3.3 实际应用：API错误处理
+
+```python
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, ValidationError
+
+app = FastAPI()
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    age: int
+
+@app.post("/users/")
+async def create_user(user_data: dict):
+    try:
+        user = UserCreate.model_validate(user_data)
+        # 保存到数据库...
+        return {"message": "用户创建成功", "user": user.model_dump()}
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "数据验证失败",
+                "details": e.errors()
+            }
+        )
+```
+
+## 04 验证信息（ValidationInfo）：获取更多上下文
+
+有时候验证需要访问其他字段或上下文信息：
+
+```python
+from pydantic import BaseModel, ValidationInfo, field_validator
+
+class UserModel(BaseModel):
+    password: str
+    password_repeat: str
+    username: str
+
+    @field_validator('password_repeat', mode='after')
+    @classmethod
+    def check_passwords_match(cls, value: str, info: ValidationInfo) -> str:
+        # 访问已验证的数据
+        if 'password' in info.data and value != info.data['password']:
+            raise ValueError('密码不一致')
+        return value
+```
+
+### 使用上下文（Context）
+
+```python
+from pydantic import BaseModel, ValidationInfo, field_validator
+
+class Model(BaseModel):
+    text: str
+
+    @field_validator('text', mode='after')
+    @classmethod
+    def remove_stopwords(cls, v: str, info: ValidationInfo) -> str:
+        if isinstance(info.context, dict):
+            stopwords = info.context.get('stopwords', set())
+            v = ' '.join(w for w in v.split() if w.lower() not in stopwords)
+        return v
+
+# 传入上下文
+result = Model.model_validate(
+    {'text': 'This is an example document'},
+    context={'stopwords': ['this', 'is', 'an']}
+)
+print(result.text)  # 输出: example document
+```
+
+## 05 实战：电商订单验证
+
+来一个综合案例，看看验证在实际项目中怎么用：
+
+```python
+from typing import List, Optional
+from datetime import datetime
+from pydantic import BaseModel, Field, field_validator, model_validator
+from decimal import Decimal
+
+class OrderItem(BaseModel):
+    product_id: int
+    quantity: int = Field(..., gt=0, description="数量必须大于0")
+    price: Decimal = Field(..., gt=0, description="价格必须大于0")
+    
+    @field_validator('price')
+    @classmethod
+    def validate_price(cls, v: Decimal) -> Decimal:
+        """价格保留两位小数"""
+        return v.quantize(Decimal('0.01'))
+
+class Order(BaseModel):
+    order_id: str
+    customer_id: int
+    items: List[OrderItem]
+    discount: Decimal = Field(default=0, ge=0, le=100)
+    status: str = Field(default='pending')
+    created_at: datetime = Field(default_factory=datetime.now)
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        valid_statuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled']
+        if v not in valid_statuses:
+            raise ValueError(f'状态必须是 {valid_statuses} 之一')
+        return v
+    
+    @model_validator(mode='after')
+    def check_order_items(self):
+        """检查订单必须包含商品"""
+        if not self.items:
+            raise ValueError('订单必须包含至少一个商品')
+        return self
+    
+    def calculate_total(self) -> Decimal:
+        """计算订单总金额"""
+        subtotal = sum(item.price * item.quantity for item in self.items)
+        discount_amount = subtotal * (self.discount / 100)
+        return (subtotal - discount_amount).quantize(Decimal('0.01'))
+
+# 使用示例
+order = Order(
+    order_id='ORD-2024-001',
+    customer_id=1001,
+    items=[
+        {'product_id': 1, 'quantity': 2, 'price': Decimal('29.99')},
+        {'product_id': 2, 'quantity': 1, 'price': Decimal('99.99')},
+    ],
+    discount=10
+)
+
+print(f'订单ID: {order.order_id}')
+print(f'商品数量: {len(order.items)}')
+print(f'总金额: ¥{order.calculate_total()}')
+
+# 错误情况
+try:
+    invalid_order = Order(
+        order_id='ORD-2024-002',
+        customer_id=1002,
+        items=[],  # 空订单
+    )
+except Exception as e:
+    print(f'错误: {e}')
+```
+
+## 06 最佳实践
+
+1. **优先使用装饰器**：代码更清晰，可读性更好
+2. **合理选择验证器类型**：
+   - Before：数据预处理
+   - After：业务逻辑验证（最常用）
+   - Wrap：需要完全控制验证流程
+3. **错误信息要友好**：用户能看懂，开发者能调试
+4. **善用ValidationInfo**：需要跨字段验证时特别有用
+5. **不要过度验证**：在性能敏感的地方适当放宽
+
+## 总结一下
+
+Pydantic的验证系统非常强大：
+- ✅ 四种验证器类型，各有用途
+- ✅ 字段验证器处理单个字段
+- ✅ 模型验证器处理跨字段逻辑
+- ✅ 完善的错误处理机制
+- ✅ 上下文信息支持
+
+用好了这些验证功能，你的数据就能坚如磐石，各种脏数据、异常情况都能优雅处理。
+
+下一篇我们讲**模型配置**，包括ConfigDict的各种配置选项、配置继承、from_attributes等高级功能。配置玩好了，Pydantic用起来更顺手。
+

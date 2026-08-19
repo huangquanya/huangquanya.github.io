@@ -32,3 +32,7 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# 本地工作区
+.workbuddy/
+*.log

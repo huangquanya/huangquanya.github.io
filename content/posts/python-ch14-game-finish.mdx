@@ -1,0 +1,244 @@
+---
+title: "Python游戏开发收尾：Play按钮、记分系统与难度递进"
+date: "2026-07-10"
+excerpt: "给游戏补上最后三块拼图：Play 开始按钮、记分牌与最高分、每关难度递进。"
+tags: ["Python", "Python入门"]
+---
+
+经过第12和第13章，《外星人入侵》已经有了一个可玩游戏的完整骨架。但还缺几样东西让它更像一款正经游戏：
+
+- 游戏启动时该有个开始画面
+- 玩家打了多少分要能看到
+- 每过一关，难度要增加
+
+这一章，我们就来解决这三个问题。
+
+---
+
+## 01 Play按钮：让游戏优雅地开始和重置
+
+游戏启动时，默认 `game_active = False`，光标要显示出来，告诉玩家"点击这里开始"。
+
+### Button类
+
+Pygame 没有内置按钮，我们自己写一个：
+
+```python
+# button.py
+import pygame
+from pygame.sprite import Sprite
+
+class Button(Sprite):
+    def __init__(self, ai_settings, screen, msg):
+        self.screen = screen
+        self.screen_rect = screen.get_rect()
+
+        self.width, self.height = 200, 50
+        self.button_color = (0, 135, 0)  # 绿色
+        self.text_color = (255, 255, 255)
+        self.font = pygame.font.SysFont(None, 48)
+
+        self.rect = pygame.Rect(0, 0, self.width, self.height)
+        self.rect.center = self.screen_rect.center
+
+        self.prep_msg(msg)
+
+    def prep_msg(self, msg):
+        self.image = self.font.render(msg, True, self.text_color,
+                                      self.button_color)
+        self.image_rect = self.image.get_rect()
+        self.image_rect.center = self.rect.center
+
+    def draw_button(self):
+        self.screen.fill(self.button_color, self.rect)
+        self.screen.blit(self.image, self.image_rect)
+```
+
+`prep_msg` 把文字渲染成图像，`draw_button` 先填颜色再贴文字。
+
+### 鼠标检测：单击开始
+
+```python
+def check_play_button(stats, play_button, ship, aliens,
+                      bullets, ai_settings, screen):
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+    button_clicked = play_button.rect.collidepoint(mouse_x, mouse_y)
+
+    if button_clicked and not stats.game_active:
+        # 重置游戏状态
+        ai_settings.initialize_dynamic_settings()
+        stats.reset_stats()
+        stats.game_active = True
+
+        aliens.empty()
+        bullets.empty()
+        create_fleet(ai_settings, screen, aliens)
+        ship.center_ship()
+        pygame.mouse.set_visible(False)  # 隐藏光标
+```
+
+`pygame.mouse.get_pos()` 获取鼠标位置，`rect.collidepoint()` 判断鼠标是否在按钮范围内。
+
+游戏结束时 `pygame.mouse.set_visible(True)` 恢复光标，这样光标只在需要点击时才出现。
+
+---
+
+## 02 静态设置vs动态设置：难度递进的前提
+
+游戏每次开始，速度都是一样的。随着等级提升，速度要越来越快。
+
+怎么让"初始速度"和"当前速度"分开管理？把设置分成两类：
+
+```python
+# settings.py
+class Settings:
+    def __init__(self):
+        # 静态设置（永远不变）
+        self.screen_width = 1200
+        self.screen_height = 700
+        self.ships_limit = 3
+        self.speedup_scale = 1.1       # 每级速度倍率
+        self.score_scale = 1.5         # 每级分数倍率
+
+        self.initialize_dynamic_settings()
+
+    def initialize_dynamic_settings(self):
+        # 动态设置（每局重置）
+        self.ship_speed_factor = 1.5
+        self.bullet_speed_factor = 1.5
+        self.alien_speed_factor = 1
+        self.fleet_direction = 1
+        self.alien_points = 50
+
+    def increase_speed(self):
+        # 每升一级调用一次
+        self.ship_speed_factor *= self.speedup_scale
+        self.bullet_speed_factor *= self.speedup_scale
+        self.alien_speed_factor *= self.speedup_scale
+        self.alien_points = int(self.alien_points * self.score_scale)
+```
+
+关键设计：
+- `speedup_scale = 1.1`：每级速度乘以1.1，10级后就是1.1^10≈2.6倍
+- `score_scale = 1.5`：每级击中外星人的分数增加50%
+
+---
+
+## 03 记分系统：Scoreboard
+
+有了等级制度，分数也得配套跟上来。
+
+### GameStats：管理所有统计
+
+```python
+class GameStats:
+    def __init__(self, ai_settings):
+        self.high_score = 0  # 最高分，任何情况都不重置
+
+    def reset_stats(self):
+        self.ships_left = self.ai_settings.ships_limit
+        self.score = 0
+        self.level = 1
+```
+
+### Scoreboard：把数字画到屏幕上
+
+```python
+class Scoreboard:
+    def __init__(self, ai_settings, screen, stats):
+        self.screen = screen
+        self.stats = stats
+
+        self.prep_score()
+        self.prep_high_score()
+        self.prep_level()
+        self.prep_ships()
+
+    def prep_score(self):
+        # 圆整到10的整数倍（街机风格）
+        rounded_score = int(round(self.stats.score, -1))
+        score_str = "{:,}".format(rounded_score)
+        self.score_image = self.font.render(score_str, True,
+                    self.text_color, self.ai_settings.bg_color)
+
+    def prep_ships(self):
+        # 用Ship的图形来显示剩余命数（左上角横排）
+        self.ships = Group()
+        for ship_number in range(self.stats.ships_left):
+            ship = Ship(self.ai_settings, self.screen)
+            ship.rect.x = 10 + ship_number * ship.rect.width
+            ship.rect.y = 10
+            self.ships.add(ship)
+```
+
+用飞船图形代替数字显示剩余命数——这是经典街机游戏的做法。
+
+---
+
+## 04 完整的计分流程
+
+每当一颗子弹击中一群外星人：
+
+```python
+collisions = pygame.sprite.groupcollide(bullets, aliens, True, True)
+
+for alien_list in collisions.values():
+    # 一颗宽子弹可能同时击中多个外星人，都要算分
+    self.stats.score += self.ai_settings.alien_points * len(alien_list)
+
+self.check_high_score()
+self.prep_score()
+
+# 全灭了就升级
+if len(aliens) == 0:
+    self.bullets.empty()
+    self.ai_settings.increase_speed()
+    self.stats.level += 1
+    self.prep_level()
+    create_fleet(self.ai_settings, self.screen, self.aliens)
+```
+
+注意这里的细节：**宽子弹**一次可以穿过多个外星人，所以要遍历 `collisions.values()`，把所有被击中的外星人都算上，不能只加一份分。
+
+---
+
+## 05 最高分：始终保留
+
+最高分的逻辑很简单——每次得分变化就检查一次：
+
+```python
+def check_high_score(self):
+    if self.stats.score > self.stats.high_score:
+        self.stats.high_score = self.stats.score
+        self.prep_high_score()
+```
+
+注意 `high_score` 存在 `GameStats` 里，而 `GameStats` 在游戏重启时不会被重新创建，所以最高分始终保持。
+
+---
+
+## 06 一个完整的游戏循环
+
+四章的内容加在一起，《外星人入侵》的代码结构是：
+
+```
+alien_invasion/
+├── alien_invasion.py    # 主循环 + 创建Scoreboard/Button
+├── settings.py           # 静态/动态分离
+├── game_stats.py         # score/high_score/level/game_active
+├── scoreboard.py         # 记分牌（新增）
+├── button.py             # Play按钮（新增）
+├── ship.py / alien.py / bullet.py
+├── game_functions.py     # 事件、碰撞、升级
+└── images/
+    ├── ship.bmp
+    └── alien.bmp
+```
+
+---
+
+## 下章预告
+
+从第6章到第14章，《Python编程：从入门到实践》这本书的前半部分（知识点）和项目章节（12-14章）就全部完成了。
+
+下一章我们进入**数据可视化**，用 Python 的 matplotlib 库画图、模拟随机漫步、统计分析骰子结果。告别游戏，进入另一种有趣的数据探索。

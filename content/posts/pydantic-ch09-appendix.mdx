@@ -1,0 +1,425 @@
+---
+title: "Pydantic完整参考手册：附录与速查"
+date: "2026-08-24"
+excerpt: "一份 Pydantic 速查表：完整类型列表、装饰器、验证器执行顺序、配置选项与错误类型。"
+tags: ["Python", "Pydantic"]
+---
+
+说实话，写代码最烦的是什么？就是突然想不起来某个配置怎么写，或者忘了某个类型怎么用。今天我把Pydantic的所有参考信息都整理在这里，以后忘了直接来查，比翻文档快多了。
+
+## 九、附录：最全的Pydantic速查表
+
+## A. 完整类型列表
+
+### A.1 基础类型
+
+```python
+# 数值类型
+int        # 整数
+float      # 浮点数
+complex    # 复数
+Decimal    # 十进制数（需要from decimal import Decimal）
+
+# 字符串类型
+str        # 字符串
+bytes      # 字节串
+
+# 布尔类型
+bool       # 布尔值
+
+# 空类型
+None       # 空值
+```
+
+### A.2 标准库类型
+
+```python
+from datetime import datetime, date, time, timedelta
+from uuid import UUID
+from decimal import Decimal
+from pathlib import Path, FilePath, DirectoryPath
+from typing import List, Dict, Set, Tuple, FrozenSet
+from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
+from email_validator import EmailStr, NameEmail
+
+class DateTimeTypes(BaseModel):
+    # 日期时间
+    created_at: datetime      # 日期时间
+    birth_date: date          # 日期
+    meeting_time: time        # 时间
+    duration: timedelta       # 时间间隔
+    
+    # UUID
+    user_id: UUID
+    
+    # Decimal
+    price: Decimal
+    
+    # 路径
+    config_file: Path
+    data_file: FilePath       # 必须是文件
+    log_dir: DirectoryPath    # 必须是目录
+    
+    # 集合类型
+    names: List[str]
+    scores: Dict[str, int]
+    unique_ids: Set[int]
+    coordinates: Tuple[float, float]
+    frozen_items: FrozenSet[str]
+    
+    # 网络地址
+    ipv4: IPv4Address
+    ipv6: IPv6Address
+    network_v4: IPv4Network
+    network_v6: IPv6Network
+    
+    # 邮箱
+    email: EmailStr
+    named_email: NameEmail
+```
+
+### A.3 网络类型（pydantic.networks）
+
+```python
+from pydantic.networks import (
+    EmailStr,        # 邮箱地址
+    NameEmail,       # 带名称的邮箱
+    IPvAnyAddress,   # IPv4或IPv6地址
+    IPvAnyNetwork,   # IPv4或IPv6网络
+    IPvAnyInterface, # IPv4或IPv6接口
+    HttpUrl,         # HTTP/HTTPS URL
+    AnyUrl,          # 任意URL
+    PostgresDsn,     # PostgreSQL连接字符串
+    RedisDsn,        # Redis连接字符串
+    MongoDsn,        # MongoDB连接字符串
+    MySQLDsn,        # MySQL连接字符串
+    CockroachDsn,    # CockroachDB连接字符串
+)
+
+class NetworkConfig(BaseModel):
+    email: EmailStr
+    website: HttpUrl
+    database_url: PostgresDsn
+    redis_url: RedisDsn
+```
+
+### A.4 保密类型（pydantic.types）
+
+```python
+from pydantic import SecretStr, SecretBytes
+
+class Secrets(BaseModel):
+    password: SecretStr      # 隐藏字符串
+    api_key: SecretBytes     # 隐藏字节
+
+secret = Secrets(
+    password='my-secret-password',
+    api_key=b'secret-key'
+)
+
+print(secret.password)  # 显示: '**********'
+print(secret.api_key)   # 显示: b'**********'
+```
+
+### A.5 约束类型
+
+```python
+from pydantic import (
+    PositiveInt,        # 正整数 (> 0)
+    NegativeInt,        # 负整数 (< 0)
+    NonNegativeInt,     # 非负整数 (>= 0)
+    NonPositiveInt,     # 非正整数 (<= 0)
+    PositiveFloat,      # 正浮点数 (> 0)
+    NegativeFloat,      # 负浮点数 (< 0)
+    NonNegativeFloat,   # 非负浮点数 (>= 0)
+    NonPositiveFloat,   # 非正浮点数 (<= 0)
+    FiniteFloat,        # 有限浮点数 (非inf, 非nan)
+    
+    # 字符串约束
+    ConstrainedStr,     # 可设置min_length, max_length等
+    
+    # 严格类型
+    StrictStr,          # 严格字符串
+    StrictInt,          # 严格整数
+    StrictFloat,        # 严格浮点数
+    StrictBool,         # 严格布尔值
+)
+
+class ConstrainedExample(BaseModel):
+    positive_int: PositiveInt
+    non_negative_float: NonNegativeFloat
+    short_str: ConstrainedStr = Field(min_length=1, max_length=10)
+```
+
+## B. 常用装饰器速查
+
+| 装饰器 | 用途 | 示例 |
+|--------|------|------|
+| `@field_validator` | 字段验证器 | `@field_validator('field')` |
+| `@model_validator` | 模型验证器 | `@model_validator(mode='after')` |
+| `@field_serializer` | 字段序列化器 | `@field_serializer('field')` |
+| `@model_serializer` | 模型序列化器 | `@model_serializer(mode='wrap')` |
+
+### B.1 field_validator
+
+```python
+from pydantic import BaseModel, field_validator
+
+class User(BaseModel):
+    age: int
+    
+    @field_validator('age')
+    @classmethod
+    def validate_age(cls, v):
+        if v < 0:
+            raise ValueError('年龄不能为负')
+        return v
+```
+
+### B.2 model_validator
+
+```python
+from typing_extensions import Self
+from pydantic import BaseModel, model_validator
+
+class User(BaseModel):
+    password: str
+    confirm: str
+    
+    @model_validator(mode='after')
+    def check_match(self) -> Self:
+        if self.password != self.confirm:
+            raise ValueError('密码不匹配')
+        return self
+```
+
+### B.3 field_serializer
+
+```python
+from pydantic import BaseModel, field_serializer
+from datetime import datetime
+
+class Event(BaseModel):
+    name: str
+    created_at: datetime
+    
+    @field_serializer('created_at')
+    def serialize_dt(self, dt: datetime):
+        return dt.strftime('%Y-%m-%d')
+```
+
+## C. 验证器执行顺序
+
+验证器按以下顺序执行：
+
+1. **Before 验证器**（从右到左）
+   ```python
+   @field_validator('field', mode='before')  # 3
+   @field_validator('field', mode='before')  # 2
+   @field_validator('field', mode='before')  # 1 ← 先执行
+   ```
+
+2. **内部验证**
+   - 类型转换
+   - 约束检查
+   - 默认值填充
+
+3. **After 验证器**（从左到右）
+   ```python
+   @field_validator('field', mode='after')  # 1 ← 先执行
+   @field_validator('field', mode='after')  # 2
+   @field_validator('field', mode='after')  # 3
+   ```
+
+4. **Wrap 验证器**
+   ```python
+   @field_validator('field', mode='wrap')
+   def validator(cls, v, handler):
+       # 可以调用handler执行内部验证
+       return handler(v)
+   ```
+
+## D. 配置选项速查表
+
+| 配置项 | 类型 | 说明 | 示例 |
+|--------|------|------|------|
+| `frozen` | bool | 冻结模型（不可变） | `frozen=True` |
+| `extra` | str | 额外字段处理 | `'ignore'`, `'forbid'`, `'allow'` |
+| `from_attributes` | bool | 从对象属性创建 | `from_attributes=True` |
+| `populate_by_name` | bool | 按字段名填充 | `populate_by_name=True` |
+| `str_to_lower` | bool | 字符串转小写 | `str_to_lower=True` |
+| `str_to_upper` | bool | 字符串转大写 | `str_to_upper=True` |
+| `str_strip_whitespace` | bool | 去除字符串空白 | `str_strip_whitespace=True` |
+| `str_min_length` | int | 字符串最小长度 | `str_min_length=1` |
+| `str_max_length` | int | 字符串最大长度 | `str_max_length=100` |
+| `strict` | bool | 严格模式 | `strict=True` |
+| `validate_assignment` | bool | 赋值时验证 | `validate_assignment=True` |
+| `arbitrary_types_allowed` | bool | 允许任意类型 | `arbitrary_types_allowed=True` |
+| `ser_json_timedelta` | str | timedelta序列化格式 | `'iso8601'`, `'float'` |
+| `ser_json_bytes` | str | bytes序列化格式 | `'utf8'`, `'base64'` |
+
+### 完整配置示例
+
+```python
+from pydantic import BaseModel, ConfigDict
+
+class Model(BaseModel):
+    model_config = ConfigDict(
+        # 模型行为
+        frozen=False,                    # 是否冻结
+        extra='ignore',                  # 额外字段: 'ignore', 'forbid', 'allow'
+        from_attributes=True,            # 从对象创建
+        populate_by_name=True,           # 按名称填充
+        
+        # 字符串处理
+        str_to_lower=False,              # 转小写
+        str_to_upper=False,              # 转大写
+        str_strip_whitespace=False,      # 去空白
+        str_min_length=0,                # 最小长度
+        str_max_length=None,             # 最大长度
+        
+        # 验证
+        strict=False,                    # 严格模式
+        validate_assignment=False,       # 赋值时验证
+        arbitrary_types_allowed=False,   # 允许任意类型
+        
+        # 序列化
+        ser_json_timedelta='iso8601',    # timedelta格式
+        ser_json_bytes='utf8',           # bytes格式
+    )
+```
+
+## E. 错误类型速查
+
+| 错误类型 | 说明 | 示例 |
+|----------|------|------|
+| `int_parsing` | 整数解析错误 | `"abc"` → int |
+| `int_from_float` | 浮点转整数错误 | `1.5` → int |
+| `string_type` | 字符串类型错误 | `123` → str |
+| `string_too_short` | 字符串太短 | `"a"` (min=5) |
+| `string_too_long` | 字符串太长 | `"abc..."` (max=5) |
+| `value_error` | 值错误 | 自定义验证失败 |
+| `missing` | 字段缺失 | 必填字段未提供 |
+| `none_required` | 要求None | 提供了非None值 |
+| `bool_parsing` | 布尔解析错误 | `"yes"` → bool |
+| `float_parsing` | 浮点解析错误 | `"abc"` → float |
+| `list_type` | 列表类型错误 | `"abc"` → list |
+| `dict_type` | 字典类型错误 | `"abc"` → dict |
+
+### 错误处理示例
+
+```python
+from pydantic import BaseModel, ValidationError
+
+class User(BaseModel):
+    id: int
+    name: str
+
+try:
+    user = User(id='abc', name=123)
+except ValidationError as e:
+    for error in e.errors():
+        print(f"字段: {error['loc']}")
+        print(f"类型: {error['type']}")
+        print(f"消息: {error['msg']}")
+        print(f"输入: {error['input']}")
+        print('---')
+```
+
+## F. 资源链接
+
+### 官方文档
+- [Pydantic 文档](https://docs.pydantic.dev/) - 官方文档
+- [API 参考](https://docs.pydantic.dev/latest/api/) - 完整的API文档
+- [迁移指南](https://docs.pydantic.dev/latest/migration/) - v1到v2迁移
+
+### GitHub
+- [Pydantic 仓库](https://github.com/pydantic/pydantic) - 源代码
+- [Issue 跟踪](https://github.com/pydantic/pydantic/issues) - 问题报告
+
+### 错误文档
+- [错误文档](https://errors.pydantic.dev/latest/) - 错误代码说明
+
+### 相关项目
+- [Pydantic Settings](https://docs.pydantic.dev/latest/usage/pydantic_settings/) - 配置管理
+- [Pydantic Extra Types](https://docs.pydantic.dev/latest/api/pydantic_extra_types/) - 额外类型
+
+### 教程
+- [FastAPI + Pydantic](https://fastapi.tiangolo.com/) - Web框架集成
+- [LangChain + Pydantic](https://python.langchain.com/) - AI框架集成
+
+## G. 快速参考卡片
+
+### 创建模型
+```python
+from pydantic import BaseModel
+
+class User(BaseModel):
+    id: int
+    name: str
+    email: str | None = None
+```
+
+### 验证数据
+```python
+# 从字典
+user = User.model_validate({'id': 1, 'name': '张三'})
+
+# 从JSON
+user = User.model_validate_json('{"id": 1, "name": "张三"}')
+```
+
+### 转换为字典
+```python
+user_dict = user.model_dump()
+user_json = user.model_dump_json()
+```
+
+### 字段验证
+```python
+from pydantic import Field
+
+age: int = Field(..., gt=0, le=150)
+name: str = Field(..., min_length=1, max_length=50)
+```
+
+### 自定义验证器
+```python
+from pydantic import field_validator
+
+@field_validator('age')
+@classmethod
+def validate_age(cls, v):
+    if v < 0:
+        raise ValueError('年龄不能为负')
+    return v
+```
+
+### 配置模型
+```python
+from pydantic import ConfigDict
+
+class Model(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        frozen=True,
+        from_attributes=True
+    )
+```
+
+## 总结一下
+
+这份速查表涵盖了Pydantic的所有核心内容：
+
+✅ **完整类型列表** - 基础、标准库、网络、保密、约束类型  
+✅ **常用装饰器** - 验证器、序列化器  
+✅ **验证器执行顺序** - Before、内部、After、Wrap  
+✅ **配置选项** - 所有ConfigDict选项  
+✅ **错误类型** - 常见验证错误  
+✅ **资源链接** - 文档、GitHub、教程  
+✅ **快速参考** - 常用操作代码片段
+
+有了这个速查表，你就可以告别"怎么写来着"的问题了。收藏起来，随时查阅！
+
+
+**最后建议**：把这篇文章收藏起来，遇到问题先查这里，比翻官方文档更快！

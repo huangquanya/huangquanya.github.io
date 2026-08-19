@@ -1,0 +1,227 @@
+---
+title: "Python Django项目美化+部署：从本地到上线的最后一公里"
+date: "2026-07-28"
+excerpt: "用 Bootstrap 美化 Django 界面，配置生产环境，再把项目部署到云服务器上线。"
+tags: ["Python", "Python入门"]
+---
+
+上一章我们给学习笔记加上了用户系统，功能层面已经完整了。但打开浏览器一看——纯 HTML 的界面实在有点寒酸。这一章做两件事：用 Bootstrap 美化界面，然后把项目部署到云服务器。
+
+这是《Python编程：从入门到实践》的最后一章，也是全书最关键的一章——**学了一堆语法和框架，最终目的是让代码跑在线上，被真实用户使用。**
+
+## 01 Bootstrap 美化：给毛坯房装修
+
+Bootstrap 是最流行的前端 CSS 框架，提供了一堆现成的组件：导航栏、卡片、按钮、表单样式……不需要你从零写 CSS。
+
+### 安装和配置
+
+```bash
+pip install django-bootstrap4
+```
+
+在 `settings.py` 的 `INSTALLED_APPS` 里加上 `'bootstrap4'`：
+
+```python
+INSTALLED_APPS = [
+    'bootstrap4',
+    'learning_logs',
+    'users',
+    # ...
+]
+```
+
+### 模板中引入 Bootstrap
+
+在模板顶部加载 Bootstrap 的标签库：
+
+```html
+{% load bootstrap4 %}
+{% bootstrap_css %}
+```
+
+表单可以直接用 `{% bootstrap_form %}` 渲染，比 Django 默认的表单样式好看太多：
+
+```html
+<form method="POST" action="{% url 'learning_logs:new_topic' %}">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    {% bootstrap_button "提交" button_type="submit" button_class="btn-primary" %}
+</form>
+```
+
+`{% csrf_token %}` 是 Django 的 CSRF 保护，所有 POST 表单都必须加，否则提交会被拒绝。
+
+### Jumbotron 大标题区
+
+首页需要一个醒目的标题区域：
+
+```html
+<div class="jumbotron">
+    <h1 class="display-4">Learning Log</h1>
+    <p class="lead">记录你的学习轨迹，见证成长每一步。</p>
+    {% if user.is_authenticated %}
+        <a class="btn btn-primary" href="{% url 'learning_logs:topics' %}">查看笔记</a>
+    {% else %}
+        <a class="btn btn-primary" href="{% url 'users:register' %}">立即注册</a>
+    {% endif %}
+</div>
+```
+
+`jumbotron` 是 Bootstrap 的大标题组件，`display-4` 让字体更大更醒目，`btn btn-primary` 是蓝色主按钮。
+
+### 卡片展示主题
+
+主题列表用卡片（Card）组件展示，比普通的 `<ul><li>` 好看：
+
+```html
+<div class="card mb-3">
+    <div class="card-header">
+        {{ topic.date_added|date:'Y-m-d H:i' }}
+    </div>
+    <div class="card-body">
+        <p class="card-text">{{ topic.text }}</p>
+    </div>
+</div>
+```
+
+`mb-3` 是 Bootstrap 的间距工具类，表示 margin-bottom 为 1rem。
+
+### 响应式导航栏
+
+顶部导航栏根据登录状态动态显示不同内容：
+
+```html
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="{% url 'learning_logs:index' %}">Learning Log</a>
+    <div class="navbar-nav">
+        {% if user.is_authenticated %}
+            <span class="navbar-text">Hello, {{ user.username }}</span>
+            <a class="nav-link" href="{% url 'users:logout' %}">退出</a>
+        {% else %}
+            <a class="nav-link" href="{% url 'users:login' %}">登录</a>
+            <a class="nav-link" href="{% url 'users:register' %}">注册</a>
+        {% endif %}
+    </div>
+</nav>
+```
+
+`navbar-expand-lg` 表示在大屏幕展开导航链接，小屏幕自动折叠成汉堡菜单。`navbar-dark bg-dark` 是深色主题。
+
+## 02 部署准备
+
+部署就是把本地代码放到云服务器上，让全世界的人都能访问。需要准备几个文件：
+
+### requirements.txt
+
+记录项目依赖，方便服务器一键安装：
+
+```bash
+pip freeze > requirements.txt
+```
+
+内容大概长这样：
+
+```
+Django>=3.2
+psycopg2-binary
+gunicorn
+django-bootstrap4
+```
+
+- `psycopg2-binary`：PostgreSQL 数据库适配器（生产环境推荐用 PostgreSQL，比 SQLite 更稳定）
+- `gunicorn`：生产级 WSGI 服务器，替代 Django 自带的开发服务器
+
+### runtime.txt
+
+指定 Python 版本：
+
+```
+python-3.13.12
+```
+
+### Procfile
+
+告诉云平台怎么启动应用：
+
+```
+web: gunicorn learning_log.wsgi --log-file -
+```
+
+### .gitignore
+
+排除不需要提交的文件：
+
+```
+__pycache__/
+*.pyc
+ll_env/
+db.sqlite3
+*.sqlite3
+.env
+```
+
+### 生产环境配置
+
+`settings.py` 需要改几个地方：
+
+```python
+# 允许访问的域名
+ALLOWED_HOSTS = ['your-domain.com', 'localhost', '127.0.0.1']
+
+# SECRET_KEY 不能写在代码里
+import os
+SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+
+# 静态文件收集路径
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = '/static/'
+```
+
+部署前执行 `python manage.py collectstatic`，Django 会把所有静态文件收集到 `STATIC_ROOT` 目录。
+
+### 自定义错误页面
+
+生产环境需要友好的 404 和 500 页面：
+
+```python
+# learning_log/urls.py
+handler404 = 'learning_logs.views.page_not_found'
+handler500 = 'learning_logs.views.server_error'
+```
+
+```python
+# learning_logs/views.py
+def page_not_found(request, exception):
+    return render(request, 'learning_logs/404.html', status=404)
+
+def server_error(request):
+    return render(request, 'learning_logs/500.html', status=500)
+```
+
+## 03 部署平台选择
+
+书中用的 Heroku 免费套餐已于 2022 年终止。现在有几个替代方案：
+
+| 平台 | 免费额度 | 特点 |
+|------|---------|------|
+| PythonAnywhere | 有免费层 | 最接近书中体验，直接上传代码即可 |
+| Render | 有免费层 | 支持 PostgreSQL，GitHub 集成 |
+| Railway | 按需付费 | 较新，文档清晰 |
+| 阿里云/腾讯云 | 有试用 | 需要配置服务器，更灵活 |
+
+对初学者来说，**PythonAnywhere** 是最省心的选择——上传代码、配置 WSGI、点一下"Reload"就上线了。
+
+## 04 全书完结
+
+从第1章的 `print("Hello World!")` 到第20章的 Web 部署，这本书带我们从零走到了一个完整的 Web 应用开发者。
+
+| 阶段 | 章节 | 核心能力 |
+|------|------|---------|
+| 语法基础 | 1-11章 | 变量、函数、类、文件、测试 |
+| 游戏项目 | 12-14章 | Pygame、面向对象、游戏开发 |
+| 数据可视化 | 15-17章 | matplotlib、Pygal、API 调用 |
+| Web 开发 | 18-20章 | Django、数据库、用户系统、部署 |
+
+四个项目、20章内容、几百行代码——**你现在有能力独立开发一个完整的 Python 应用了。**
+
+但这只是开始。Django 的生态远不止这些：REST Framework 做 API、Celery 做异步任务、Redis 做缓存、Docker 做容器化……每一条都值得深入。

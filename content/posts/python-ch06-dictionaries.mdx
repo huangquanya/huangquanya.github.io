@@ -1,0 +1,230 @@
+---
+title: "Python字典保姆级入门，这一篇够了"
+date: "2026-06-16"
+excerpt: "掌握字典的增删改、四种遍历方式和嵌套技巧，Python 最实用的数据结构。"
+tags: ["Python", "Python入门"]
+---
+
+学Python的路上，字典（Dictionary）大概是你绕不开的一个坎。
+
+不是因为它难，而是因为它**太好用了**。几乎所有实用的Python程序里，你都能看到字典的身影——配置文件、数据结构、API返回结果，全是字典。
+
+这篇文章，就来把字典讲通透。
+
+## 字典是什么
+
+简单说，字典是一种**键-值对**（Key-Value）的数据结构。
+
+你可以把它想象成一本真实的字典：单词是键，释义是值。查一个词，返回对应的解释——非常快。
+
+在Python里，是这样表示的：
+
+```python
+alien_0 = {'color': 'green', 'points': 5}
+```
+
+这就是一个字典，包含两个键-值对：
+- 键 `'color'` → 值 `'green'`
+- 键 `'points'` → 值 `5`
+
+## 基本操作：增删改
+
+### 添加和修改
+
+往字典里加内容，简单到爆：
+
+```python
+alien_0 = {}
+alien_0['color'] = 'green'
+alien_0['points'] = 5
+print(alien_0)  # {'color': 'green', 'points': 5}
+```
+
+如果键已经存在，那就是**修改**；不存在，就是**新增**。
+
+### 删除
+
+不需要了？直接删：
+
+```python
+del alien_0['points']
+```
+
+注意：删了就没了，不会消失。
+
+## 遍历字典：四种方式
+
+这是字典最核心的部分，也是面试常问的。
+
+### 1. 遍历所有键-值对：`.items()`
+
+```python
+favorite_languages = {
+    'jen': 'python',
+    'sarah': 'c',
+    'edward': 'ruby',
+    'phil': 'python',
+}
+
+for name, language in favorite_languages.items():
+    print(f"{name.title()} 喜欢的语言是 {language.title()}")
+```
+
+输出：
+
+```
+Jen 喜欢的语言是 Python
+Sarah 喜欢的语言是 C
+Edward 喜欢的语言是 Ruby
+Phil 喜欢的语言是 Python
+```
+
+### 2. 只遍历键：`.keys()`
+
+不需要值的时候，这样：
+
+```python
+for name in favorite_languages.keys():
+    print(name.title())
+```
+
+`keys()` 返回所有键的列表。可以直接判断某键是否存在：
+
+```python
+if 'erin' not in favorite_languages.keys():
+    print("Erin，诚邀你参与调查！")
+```
+
+### 3. 按顺序遍历键：`sorted()`
+
+字典本身不保证顺序，要排序输出，加个`sorted()`：
+
+```python
+for name in sorted(favorite_languages.keys()):
+    print(f"{name}，感谢参与调查")
+```
+
+### 4. 只遍历值：`.values()`
+
+只要值，不管键：
+
+```python
+for language in set(favorite_languages.values()):
+    print(language.title())
+```
+
+这里加了个`set()`——是因为值可能有重复，`set()`会自动去重。
+
+## 嵌套：字典的真正威力
+
+单个字典能存的信息有限，但字典可以**嵌套**，一下就打开了天地。
+
+### 字典列表
+
+意思是：列表里的每个元素，都是一个字典。
+
+实战场景——生成30个外星人：
+
+```python
+aliens = []
+for alien_number in range(30):
+    aliens.append({'color': 'green', 'points': 5, 'speed': 'slow'})
+
+print(f"共创建了 {len(aliens)} 个外星人")
+```
+
+如果其中几个外星人变色、提速，可以这样改：
+
+```python
+for alien in aliens[0:3]:
+    if alien['color'] == 'green':
+        alien['color'] = 'yellow'
+        alien['speed'] = 'medium'
+        alien['points'] = 10
+```
+
+### 字典里套列表
+
+一个键对应多个值的情况，用列表搞定：
+
+```python
+pizza = {
+    'crust': 'thick',
+    'toppings': ['mushrooms', 'extra cheese', 'pepperoni'],
+}
+
+print(f"你点了一个 {pizza['crust']} 皮披萨，配料如下：")
+for topping in pizza['toppings']:
+    print(f"  - {topping}")
+```
+
+### 字典里套字典
+
+每个用户一个字典，再统一存在一个大字典里：
+
+```python
+users = {
+    'aeinstein': {
+        'first': 'albert',
+        'last': 'einstein',
+        'location': 'princeton',
+    },
+    'mcurie': {
+        'first': 'marie',
+        'last': 'curie',
+        'location': 'paris',
+    },
+}
+
+for username, info in users.items():
+    full_name = f"{info['first']} {info['last']}"
+    print(f"{username}: {full_name}，住在 {info['location'].title()}")
+```
+
+多层嵌套看着复杂，但逻辑非常清晰：先拆到每一层，再逐层访问。
+
+## 几个实用小技巧
+
+**1. 给字典设置默认值**
+
+用`setdefault()`，键不存在时才写入：
+
+```python
+alien.setdefault('status', 'alive')
+```
+
+**2. 快速统计出现次数**
+
+字典配合`setdefault()`是经典组合：
+
+```python
+votes = ['python', 'java', 'python', 'go', 'java', 'python']
+count = {}
+for lang in votes:
+    count.setdefault(lang, 0)
+    count[lang] += 1
+```
+
+**3. 字典推导式**
+
+一行生成字典，Pythonic到底：
+
+```python
+squares = {x: x**2 for x in range(5)}
+# {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}
+```
+
+## 总结
+
+| 操作 | 代码 |
+|------|------|
+| 新增/修改 | `d['key'] = value` |
+| 删除 | `del d['key']` |
+| 遍历键值 | `for k, v in d.items()` |
+| 遍历键 | `for k in d.keys()` |
+| 遍历值 | `for v in d.values()` |
+| 安全取值 | `d.get('key', default)` |
+
+字典这东西，没有捷径，多写就会。一开始可能会跟列表搞混，但用多了你会发现——字典才是Python里最接近真实世界的数据结构。
+
+下一章，我们来聊while循环和用户输入，让你的程序真正"活"起来。

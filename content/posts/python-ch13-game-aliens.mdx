@@ -1,0 +1,205 @@
+---
+title: "Python游戏开发实战：让外星人来袭"
+date: "2026-07-07"
+excerpt: "给射击游戏加入外星人舰队：网格生成、触边反向、碰撞检测与游戏结束逻辑。"
+tags: ["Python", "Python入门"]
+---
+
+上一章我们做出了一艘会射击的飞船。这一章的任务是：**把外星人加进来**。
+
+外星人不仅要显示在屏幕上，还要成群结队地移动——碰到屏幕边缘就下移一行，然后换个方向继续走。被子弹打中要消失，打完所有外星人后要生成新的一波。
+
+听起来逻辑不少，我们一个一个拆解。
+
+---
+
+## 01 创建第一个外星人
+
+外星人和飞船非常像——都是一张图片加一个位置。所以写法几乎一样：
+
+```python
+# alien.py
+import pygame
+from pygame.sprite import Sprite
+
+class Alien(Sprite):
+    def __init__(self, ai_settings, screen):
+        super().__init__()
+        self.screen = screen
+        self.ai_settings = ai_settings
+        self.image = pygame.image.load('images/alien.bmp')
+        self.rect = self.image.get_rect()
+
+        # 一行8个，外星人宽度为60
+        self.rect.x = self.rect.width
+        self.rect.y = self.rect.height
+
+    def blitme(self):
+        self.screen.blit(self.image, self.rect)
+
+    def update(self):
+        # 向右移动
+        self.x += self.ai_settings.alien_speed_factor
+        self.rect.x = self.x
+
+    def check_edges(self):
+        # 如果碰到屏幕边缘就返回True
+        screen_rect = self.screen.get_rect()
+        return (self.rect.right >= screen_rect.right or
+                self.rect.left <= 0)
+```
+
+和飞船一样，用 `float` 存储水平位置保证精度。
+
+---
+
+## 02 生成一群外星人：网格布局
+
+一个外星人太无聊，要生成一整群。
+
+思路是算两件事：
+1. **一行能放多少个**（横向）
+2. **能放多少行**（纵向）
+
+```python
+def get_number_aliens_x(ai_settings, alien_width):
+    available_space_x = ai_settings.screen_width - 2 * alien_width
+    return int(available_space_x / (2 * alien_width))
+
+def get_number_rows(ai_settings, ship_height, alien_height):
+    available_space_y = (ai_settings.screen_height
+                         - (3 * alien_height)
+                         - ship_height)
+    return int(available_space_y / (2 * alien_height))
+```
+
+每个外星人占 `2 × width` 的水平空间（自身宽度 + 间距），这样外星人之间有均匀的空隙。
+
+```python
+def create_fleet(ai_settings, screen, aliens):
+    alien = Alien(ai_settings, screen)
+    alien_width = alien.rect.width
+
+    number_aliens_x = get_number_aliens_x(ai_settings, alien_width)
+    number_rows = get_number_rows(ai_settings, ship.rect.height,
+                                  alien.rect.height)
+
+    for row_number in range(number_rows):
+        for alien_number in range(number_aliens_x):
+            alien = Alien(ai_settings, screen)
+            alien.x = alien_width + 2 * alien_width * alien_number
+            alien.rect.x = alien.x
+            alien.rect.y = alien.rect.height + 2 * alien.rect.height * row_number
+            aliens.add(alien)
+```
+
+嵌套循环创建 `number_aliens_x × number_rows` 个外星人，整齐排列成网格。
+
+---
+
+## 03 舰队移动：触边下移+反向
+
+所有外星人一起移动，整体协调才是关键。
+
+```python
+def update_aliens(ai_settings, aliens):
+    # 先让每个外星人移动
+    for alien in aliens.sprites():
+        alien.update()
+
+    # 再检查整体是否触边
+    for alien in aliens.sprites():
+        if alien.check_edges():
+            for a in aliens:
+                a.rect.y += ai_settings.fleet_drop_speed
+            ai_settings.fleet_direction *= -1
+            break  # 只需要第一个触边的外星人触发就够了
+```
+
+外星人移动速度很快（`fleet_drop_speed = 10`），触边时整个舰队下移一行，然后 `fleet_direction` 取反（1→-1→1...），下次就反向移动了。
+
+---
+
+## 04 碰撞检测：子弹vs外星人
+
+这是游戏里最核心的逻辑之一。Pygame 提供了两个好用的碰撞检测函数：
+
+```python
+# 子弹vs外星人：返回字典 {bullet: [alien, alien]}
+collisions = pygame.sprite.groupcollide(
+    bullets, aliens, True, True)
+```
+
+四个参数：
+- 前两个是要比较的两个 Group
+- 第三个 `True`：子弹击中后消失（删除子弹）
+- 第四个 `True`：外星人被击中后消失（删除外星人）
+
+返回值是一个字典，key是子弹，value是被那颗子弹击中的外星人列表。
+
+### 外星人vs飞船：被撞了怎么办
+
+```python
+if pygame.sprite.spritecollideany(ship, aliens):
+    ship_hit(ai_settings, stats, screen, ship, aliens, bullets)
+```
+
+`spritecollideany` 遇到第一个碰撞就返回，不是字典，很适合做"是否碰撞"的简单判断。
+
+---
+
+## 05 游戏结束：被撞了怎么处理
+
+当飞船被外星人撞上，游戏需要做这几件事：
+
+```python
+def ship_hit(ai_settings, stats, screen, ship, aliens, bullets):
+    stats.ships_left -= 1
+
+    if stats.ships_left > 0:
+        # 还有命，重置当前场景
+        aliens.empty()
+        bullets.empty()
+        create_fleet(ai_settings, screen, aliens)
+        ship.center_ship()
+    else:
+        # 命用完了，游戏结束
+        stats.game_active = False
+        pygame.mouse.set_visible(True)  # 恢复光标
+```
+
+用 `Group.empty()` 一次性清空所有外星人/子弹，比逐个删除简洁得多。
+
+---
+
+## 06 主循环的最终形态
+
+到这一步，主循环的框架已经比较完整了：
+
+```python
+while True:
+    check_events(ship, play_button, stats)
+    if stats.game_active:
+        ship.update()
+        bullets.update()
+        update_bullets(ai_settings, screen, ship, aliens, bullets)
+        update_aliens(ai_settings, aliens)
+        check_alien_ship_collisions(ai_settings, stats, screen,
+                                     ship, aliens, bullets)
+    update_screen(ai_settings, screen, stats, ship, aliens,
+                  bullets, play_button)
+```
+
+从第12章的简单射击，到第13章的完整游戏逻辑——外星人、碰撞、结束条件，都有了。
+
+---
+
+## 下章预告
+
+第14章，我们给游戏加上最后的收尾：
+
+- **Play按钮**：鼠标单击开始游戏
+- **记分系统**：当前得分、最高分、等级
+- **难度递进**：每过一关，外星人移动得更快
+
+《外星人入侵》就要完成了。

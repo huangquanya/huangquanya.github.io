@@ -1,0 +1,193 @@
+---
+title: "Python交互输入与循环控制，这一篇彻底搞懂"
+date: "2026-06-19"
+excerpt: "学会 input() 获取输入、int() 转换类型，用 while 循环和标志位控制程序反复执行。"
+tags: ["Python", "Python入门"]
+---
+
+程序和用户之间没有对话，就只是死代码。
+
+这一章，我们给程序装上"耳朵"——让它能听用户说话，还能根据条件反复执行。这就是Python里**用户输入**和**while循环**的核心能力。
+
+---
+
+## 01 input()：让程序听你说话
+
+`input()`是Python里获取用户输入最基本的方式。调用它的时候，程序会暂停运行，等待你打字、回车，然后把你输入的内容当作字符串存进变量。
+
+```python
+message = input("Tell me something, and I will repeat it back to you: ")
+print(message)
+```
+
+运行效果：
+
+```
+Tell me something, and I will repeat it back to you: Hello everyone!
+Hello everyone!
+```
+
+注意看，提示末尾加了空格，这样用户输入的东西和提示不会黏在一起，阅读体验好很多。
+
+### 提示太长怎么办？分两行写
+
+有时候提示信息很长，一行写下来会很挤。可以先把提示存到变量里，再用`+=`一点点拼出来：
+
+```python
+prompt = "If you tell us who you are, we can personalize the messages you see."
+prompt += "\nWhat is your first name? "
+name = input(prompt)
+print("\nHello, " + name + "!")
+```
+
+---
+
+## 02 input()出来的都是字符串
+
+这是新人最容易踩的坑。用户在终端输入`21`，但Python把`"21"`当成字符串存起来了——带引号的那种。
+
+```python
+>>> age = input("How old are you? ")
+How old are you? 21
+>>> age
+'21'  # 注意这里是字符串，不是整数！
+```
+
+带来的问题很明显：字符串和整数不能直接比大小。
+
+```python
+>>> age >= 18
+TypeError: unorderable types: str() >= int()
+```
+
+**解决方法：用`int()`转一下：**
+
+```python
+age = input("How old are you? ")
+age = int(age)  # 把字符串转成整数
+if age >= 18:
+    print("你已成年")
+```
+
+实际应用中，比如判断身高是否达标：
+
+```python
+height = input("请输入身高（英寸）: ")
+height = int(height)
+if height >= 36:
+    print("你满足身高要求，可以坐过山车！")
+else:
+    print("再长大一点就可以了")
+```
+
+---
+
+## 03 求模运算符：判断奇数和偶数
+
+`%`（求模运算符）返回两数相除的余数。这个小东西用处很大，最经典的应用就是判断奇偶：
+
+```python
+number = int(input("输入一个数字，我来判断奇偶: "))
+if number % 2 == 0:
+    print(f"{number} 是偶数")
+else:
+    print(f"{number} 是奇数")
+```
+
+原理很简单：偶数能被2整除，所以`number % 2`等于0；否则就是奇数。
+
+---
+
+## 04 while循环：让程序反复跑
+
+`for`循环是遍历已知集合，`while`循环则是**只要条件满足就一直跑**。
+
+```python
+current_number = 1
+while current_number <= 5:
+    print(current_number)
+    current_number += 1
+```
+
+输出：
+
+```
+1
+2
+3
+4
+5
+```
+
+这个程序做了三件事：
+1. 设一个计数器`current_number`，初始值1
+2. 只要`current_number <= 5`，就继续循环
+3. 每次循环把计数器`+1`，防止死循环
+
+---
+
+## 05 让用户决定什么时候退出
+
+用while循环配合输入，可以做一个"聊天机器人"：
+
+```python
+prompt = "\n说点什么，我帮你回显："
+prompt += "\n输入 'quit' 退出程序: "
+
+message = ""
+while message != 'quit':
+    message = input(prompt)
+    if message != 'quit':
+        print(message)
+```
+
+运行：
+
+```
+说点什么，我帮你回显：
+输入 'quit' 退出程序: 你好
+你好
+输入 'quit' 退出程序: 今天天气不错
+今天天气不错
+输入 'quit' 退出程序: quit
+
+（程序结束，不打印quit本身）
+```
+
+---
+
+## 06 标志位：管理复杂循环的利器
+
+当退出条件不止一个的时候，直接在while里堆很多`and not`会很乱。这时候引入一个**标志（flag）**会让代码清晰很多。
+
+```python
+active = True
+while active:
+    message = input(prompt)
+    if message == 'quit':
+        active = False  # 把旗帜放倒，循环结束
+    else:
+        print(message)
+```
+
+只要`active`为`True`，循环就继续。任何地方把`active`设为`False`，循环都会停止——这比在while条件里写一堆逻辑优雅得多。
+
+---
+
+## 本章小结
+
+| 知识点 | 关键用法 |
+|--------|---------|
+| `input()` | 获取用户输入，返回字符串 |
+| `int()` | 字符串转整数，用于数值计算 |
+| `%` 求模 | 判断奇偶、倍数关系 |
+| `while` 循环 | 条件满足时反复执行 |
+| 标志位 | 简化多条件退出逻辑 |
+
+---
+
+## 📌 下一章预告
+
+学会了让程序"听话"和"反复跑"，接下来要登场的是编程的核心武器——**函数**。
+
+第8章「函数」，我们会给代码起名字，让代码块可以被反复调用，还会学到参数传递、返回值等杀手级技能。把重复工作封装成函数，是写出优雅代码的第一步。

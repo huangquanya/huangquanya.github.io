@@ -1,0 +1,184 @@
+---
+title: "Python的列表：如何存放一堆数据？"
+date: "2026-06-07"
+excerpt: "掌握列表的增删改查、排序与长度统计，学会用列表管理一堆数据。"
+tags: ["Python", "Python入门"]
+---
+
+> 上一章我们学会了变量——一个变量存一个值。但如果你有100个名字要存呢？100个变量显然不现实。这一章教你用**列表**把一堆数据装进一个变量里。
+
+## 什么是列表？
+
+列表就像一排抽屉，每个抽屉编了号（从0开始），里面可以放东西。用方括号 `[]` 表示，中间用逗号分隔。
+
+```python
+bicycles = ['trek', 'cannondale', 'redline', 'specialized']
+```
+
+现在 `bicycles` 这一个变量里，装了4辆自行车品牌。
+
+## 如何访问列表中的元素？
+
+列表里每个位置有个编号，叫**索引**。从0开始：
+
+```python
+bicycles = ['trek', 'cannondale', 'redline', 'specialized']
+
+print(bicycles[0])    # trek  （第1个）
+print(bicycles[1])    # cannondale  （第2个）
+print(bicycles[3])    # specialized  （第4个）
+```
+
+**小技巧**：索引 `-1` 永远指向最后一个元素，`-2` 指向倒数第二个，以此类推。这在不知道列表有多长的时候特别有用。
+
+```python
+print(bicycles[-1])   # specialized （最后一个）
+```
+
+## 修改、添加和删除元素
+
+列表嘛，核心就是"能改"。
+
+### 修改：直接覆盖
+
+```python
+motorcycles = ['honda', 'yamaha', 'suzuki']
+motorcycles[0] = 'ducati'   # 直接改第0个
+# 现在是 ['ducati', 'yamaha', 'suzuki']
+```
+
+### 添加：末尾加 or 插队
+
+```python
+motorcycles = ['honda', 'yamaha', 'suzuki']
+
+motorcycles.append('ducati')
+# 现在是 ['honda', 'yamaha', 'suzuki', 'ducati']
+# append() 加在最后，很常用
+
+motorcycles.insert(0, 'harley')
+# 现在是 ['harley', 'honda', 'yamaha', 'suzuki', 'ducati']
+# insert() 可以插到任意位置
+```
+
+### 删除：三种方式，各有各的用场
+
+**方式一：`del` 直接删**
+```python
+del motorcycles[0]
+# 删掉第0个，再也访问不到
+```
+
+**方式二：`pop()` 弹出来**
+```python
+popped = motorcycles.pop()
+# 删掉最后一个，但把它"弹出来"存进 popped，以后还能用
+# 这在做队列、栈的时候特别有用
+```
+
+**方式三：`remove()` 按值删**
+```python
+motorcycles.remove('ducati')
+# 删掉第一个遇到的 'ducati'
+# 注意：如果列表里有多个 'ducati'，只删第一个
+```
+
+## 组织列表：排序
+
+列表里的元素乱糟糟？来排个序。
+
+### 永久排序：`sort()`
+
+```python
+cars = ['bmw', 'audi', 'toyota', 'subaru']
+cars.sort()
+# 现在 cars 变成了 ['audi', 'bmw', 'subaru', 'toyota']
+# 注意：这是永久改变，无法恢复
+
+cars.sort(reverse=True)
+# 反向永久排序
+```
+
+### 临时排序：`sorted()`
+
+想看看排好序是什么样，但不想真的改原始列表？用 `sorted()`：
+
+```python
+cars = ['bmw', 'audi', 'toyota', 'subaru']
+
+print(sorted(cars))        # 排好序了，但 cars 本身没变
+print(sorted(cars, reverse=True))  # 反向临时排序
+```
+
+### 反转列表：`reverse()`
+
+```python
+cars.reverse()
+# 直接把顺序倒过来，不是按字母，是单纯倒序
+```
+
+### 列表长度：`len()`
+
+想知道列表里有多少个元素？
+
+```python
+cars = ['bmw', 'audi', 'toyota', 'subaru']
+print(len(cars))   # 4
+```
+
+## 常见的坑：索引错误
+
+用列表最常遇到的错误是 `IndexError`，通常发生在：
+
+- 访问一个**空列表**的 `-1` 位置
+- 列表只有3个元素，却访问索引 `5`
+
+```python
+empty_list = []
+print(empty_list[-1])   # ❌ IndexError！
+```
+
+遇到索引错误时，试着把索引减1，或者 `print(len(my_list))` 看看列表到底有多长。
+
+---
+
+## 📝 章后习题
+
+**3-1 姓名**
+将一些朋友的姓名存储在一个列表中，依次访问并打印每个人的名字。
+
+**3-2 问候语**
+使用练习3-1的列表，为每个人打印一条个性化的消息，如"你好，小明！"
+
+**3-3 通勤宣言**
+创建一个你喜欢通勤方式的列表，如骑摩托车、开汽车等，打印宣言如"I would like to own a Honda motorcycle"。
+
+**3-4 嘉宾名单**
+创建一个你想邀请共进晚餐的人的列表，打印邀请消息。
+
+**3-5 修改嘉宾名单**
+打印消息指出哪位嘉宾无法赴约，将无法赴约的嘉宾替换为新嘉宾，再次打印邀请消息。
+
+**3-6 添加嘉宾**
+找到一个更大的餐桌，用 `insert()` 在名单开头和中间各加一位，用 `append()` 在末尾加一位，打印新邀请消息。
+
+**3-7 缩减名单**
+餐桌无法容纳，只能邀请两位嘉宾。使用 `pop()` 不断删除嘉宾，每次致歉，最后只剩两位受邀者。
+
+**3-8 放眼世界**
+想出至少5个想去旅游的地方，依次按原始顺序、字母顺序、反向字母顺序打印，并使用 `sort()` 和 `sort(reverse=True)` 永久排序。
+
+**3-9 晚餐嘉宾**
+使用 `len()` 打印你邀请了多少位嘉宾。
+
+**3-10 尝试使用各个函数**
+选择一个你喜欢的主题（如国家、城市、山脉等），创建一个列表，将本章介绍的每个函数至少使用一次。
+
+**3-11 有意引发错误**
+故意访问一个不存在的索引，制造一个 `IndexError`，然后修复它。
+
+---
+
+下期预告：第4章讲操作列表——用 `for` 循环遍历列表、创建数字列表、切片和复制，Python的精髓之一就在这里面。🔋
+
+*📖 内容整理自《Python编程：从入门到实践（第3版）》第3章*

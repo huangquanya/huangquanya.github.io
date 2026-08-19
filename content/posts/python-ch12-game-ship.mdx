@@ -1,0 +1,296 @@
+---
+title: "Python游戏开发入门：手把手做一只会射击的飞船"
+date: "2026-07-04"
+excerpt: "用 Pygame 手把手做射击游戏，从安装环境到飞船移动、子弹系统，搭好游戏骨架。"
+tags: ["Python", "Python入门"]
+---
+
+上一章我们学完了Python的基础语法：函数、类、文件、异常、测试。从这一章开始，我们进入一个全新的学习模式——**项目驱动**。
+
+不再是学零散的知识点，而是围绕一个完整项目，把所有知识串起来用。
+
+这个项目叫《外星人入侵》，一款经典的俯视角射击游戏。我们会用Python的游戏库 **Pygame** 来做。
+
+---
+
+## 01 环境准备：安装Pygame
+
+```bash
+pip install pygame
+```
+
+本书使用的Pygame版本是2.6.1，如果你遇到版本问题，切换到这个版本通常最稳：
+
+```bash
+pip install pygame==2.6.1
+```
+
+装好之后，来认识一下Pygame的基本套路。
+
+---
+
+## 02 Pygame基本套路：三步走
+
+任何Pygame游戏的骨架都是这三步：
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((1200, 700))
+
+while True:
+    # 第一步：处理事件（键盘、鼠标等输入）
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            sys.exit()
+
+    # 第二步：更新游戏状态（位置、分数等）
+
+    # 第三步：绘制画面
+    pygame.display.flip()  # 让最近绘制的屏幕可见
+```
+
+`pygame.display.flip()` 相当于告诉Pygame："我画完了，把最新的画面显示出来吧。"
+
+---
+
+## 03 构建游戏骨架：三个文件
+
+第一章不急着写完整游戏，先把架子搭好，分成三个文件：
+
+```
+alien_invasion/
+├── alien_invasion.py   # 主循环，游戏总调度
+├── settings.py         # 所有配置参数（屏幕大小、飞船速度等）
+└── ship.py             # 飞船类
+```
+
+**settings.py** — 集中管理所有参数，好处是调游戏平衡性时只改一处：
+
+```python
+class Settings:
+    def __init__(self):
+        self.screen_width = 1200
+        self.screen_height = 700
+        self.bg_color = (230, 230, 230)
+        self.ship_speed_factor = 1.5
+```
+
+**ship.py** — 飞船类，负责自己的位置和绘制：
+
+```python
+import pygame
+
+class Ship:
+    def __init__(self, ai_settings, screen):
+        self.screen = screen
+        self.ai_settings = ai_settings
+        self.image = pygame.image.load('images/ship.bmp')
+        self.rect = self.image.get_rect()
+        self.rect.centerx = screen.get_rect().centerx
+        self.rect.bottom = screen.get_rect().bottom
+
+    def blitme(self):
+        self.screen.blit(self.image, self.rect)
+```
+
+**alien_invasion.py** — 主循环，把各部分组装起来：
+
+```python
+from settings import Settings
+from ship import Ship
+import pygame
+
+def run_game():
+    pygame.init()
+    ai_settings = Settings()
+    screen = pygame.display.set_mode(
+        (ai_settings.screen_width, ai_settings.screen_height))
+    ship = Ship(ai_settings, screen)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
+
+        ship.blitme()
+        pygame.display.flip()
+
+run_game()
+```
+
+此时运行 `python alien_invasion.py`，应该能看到一艘飞船停在屏幕底部。
+
+---
+
+## 04 让飞船动起来：事件驱动
+
+游戏的核心是一个**循环**，每秒钟执行60次（60FPS）。但怎么让飞船响应键盘呢？答案是**事件队列**。
+
+`pygame.event.get()` 会返回所有等待处理的事件。我们遍历它们，根据类型分别处理：
+
+```python
+for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+        sys.exit()
+    elif event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_RIGHT:
+            ship.rect.centerx += ship.ai_settings.ship_speed_factor
+```
+
+但这样写有个问题：每按一次键只移动一下。要实现"按住右键持续移动"，需要引入**标志位**。
+
+### 标志位模式：持续移动的秘密
+
+```python
+# ship.py
+class Ship:
+    def __init__(self, ai_settings, screen):
+        self.moving_right = False
+        self.moving_left = False
+
+    def update(self):
+        if self.moving_right and self.rect.right < self.screen_rect.right:
+            self.center += self.ai_settings.ship_speed_factor
+        if self.moving_left and self.rect.left > 0:
+            self.center -= self.ai_settings.ship_speed_factor
+        self.rect.centerx = self.center
+```
+
+事件处理只负责设置标志位（按下了→True，松开了→False），而移动逻辑在 `update()` 里——**每秒执行60次**。
+
+这样按住右键，每秒移动 60×1.5=90 像素，体验就很流畅了。
+
+### 为什么用小数存储位置？
+
+```python
+self.center = float(self.rect.centerx)  # 存储小数
+self.rect.centerx = self.center         # 赋值时只取整数
+```
+
+`pygame.Rect` 的坐标只接受整数，小数会被直接丢弃。用单独的 `float` 变量存储，每次移动后再赋值回去，这样才能精确控制。
+
+---
+
+## 05 重构：代码多了就拆
+
+游戏代码越来越多，主循环里的函数越来越多，这时候该**重构**了。
+
+把事件处理和屏幕更新抽取到 `game_functions.py`：
+
+```python
+# game_functions.py
+def check_events(ship):
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            sys.exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RIGHT:
+                ship.moving_right = True
+        elif event.type == pygame.KEYUP:
+            if event.key == pygame.K_RIGHT:
+                ship.moving_right = False
+
+def update_screen(ai_settings, screen, ship):
+    screen.fill(ai_settings.bg_color)
+    ship.blitme()
+    pygame.display.flip()
+```
+
+这就是典型的**重构节奏**：
+1. 初期：所有代码堆在主循环里，能跑就行
+2. 中期：把相关代码抽取为独立函数
+3. 后期：函数太复杂，再拆成更小的子函数
+
+---
+
+## 06 子弹系统：Sprite和Group
+
+做射击游戏，子弹是关键。怎么管理大量子弹？用 `pygame.sprite.Group`！
+
+```python
+# bullet.py
+import pygame
+from pygame.sprite import Sprite
+
+class Bullet(Sprite):
+    def __init__(self, ai_settings, screen, ship):
+        super().__init__()
+        self.rect = pygame.Rect(0, 0, ai_settings.bullet_width,
+                                  ai_settings.bullet_height)
+        self.rect.centerx = ship.rect.centerx
+        self.rect.top = ship.rect.top
+        self.y = float(self.rect.y)
+        self.color = ai_settings.bullet_color
+        self.speed_factor = ai_settings.bullet_speed_factor
+
+    def update(self):
+        self.y -= self.speed_factor
+        self.rect.y = self.y
+
+    def draw_bullet(self):
+        pygame.draw.rect(self.screen, self.color, self.rect)
+```
+
+继承 `pygame.sprite.Sprite` 是关键——这样 Bullet 可以加入 Group，Group 会自动管理所有子弹的更新和绘制。
+
+```python
+bullets = Group()
+
+# 发射子弹
+if len(bullets) < ai_settings.bullets_allowed:
+    new_bullet = Bullet(ai_settings, screen, ship)
+    bullets.add(new_bullet)
+
+# 更新（自动调用每颗子弹的update）
+bullets.update()
+
+# 绘制
+for bullet in bullets.sprites():
+    bullet.draw_bullet()
+```
+
+Group的好处：无需手动追踪每颗子弹，一行`bullets.update()`搞定所有。
+
+限弹3发怎么实现？`len(bullets) < ai_settings.bullets_allowed`，超过就等子弹飞出去消失再发射。
+
+---
+
+## 07 一个完整的主循环
+
+把以上所有东西拼起来，就是第12章完成后的主循环：
+
+```python
+def run_game():
+    pygame.init()
+    ai_settings = Settings()
+    screen = pygame.display.set_mode(
+        (ai_settings.screen_width, ai_settings.screen_height))
+    ship = Ship(ai_settings, screen)
+    bullets = Group()
+
+    while True:
+        check_events(ship)
+        if stats.game_active:
+            ship.update()
+            bullets.update()
+        update_screen(ai_settings, screen, ship, bullets)
+
+run_game()
+```
+
+注意 `game_active` 这个标志——它控制游戏是否在进行。这个概念会在下一章被反复用到。
+
+---
+
+## 下章预告
+
+第13章，我们给游戏加入外星人：
+
+- 创建第一个外星人
+- 生成一群外星人（多行多列的网格）
+- 外星人群左右移动，碰到边缘就下移并反向
+- 用子弹击中外星人
+
+做完了，这才是一个完整的"外星人入侵"游戏。

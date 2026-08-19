@@ -1,0 +1,175 @@
+---
+title: "Python文件操作与异常处理：让程序更健壮"
+date: "2026-06-28"
+excerpt: "掌握文件读写、try/except 异常处理和 json 数据持久化，让程序更健壮。"
+tags: ["Python", "Python入门"]
+---
+
+程序运行中难免遇到各种意外：文件不存在、网络断开、用户输入了乱七八糟的数据。
+
+这一章学两件大事：**文件读写**和**异常处理**。学完之后，你的程序不再会因为一点小问题就崩溃崩溃再崩溃。
+
+---
+
+## 01 读取文件：with open 是最佳实践
+
+Python读取文件非常简单：
+
+```python
+with open('pi_digits.txt') as file_object:
+    contents = file_object.read()
+print(contents.rstrip())
+```
+
+几个关键点：
+
+- `open('pi_digits.txt')`打开文件，返回一个文件对象
+- `with`关键字确保文件在使用完毕后**自动关闭**，不需要手动调用`close()`
+- `.read()`读取文件全部内容，作为字符串返回
+- `.rstrip()`删除末尾多余的空行（`read()`会在末尾返回一个空字符）
+
+### 文件路径：相对路径和绝对路径
+
+```python
+# 相对路径：程序所在目录的子目录
+with open('text_files/filename.txt') as file_object:
+
+# 绝对路径：完整路径
+with open('C:/Users/晓晓老公/Documents/pi_digits.txt') as file_object:
+```
+
+Windows系统用反斜杠`\`，Linux/Mac用正斜杠`/`。
+
+---
+
+## 02 逐行读取
+
+一次性读取适合小文件，大文件建议逐行处理：
+
+```python
+filename = 'pi_digits.txt'
+with open(filename) as file_object:
+    for line in file_object:
+        print(line.rstrip())
+```
+
+---
+
+## 03 写入文件：write()
+
+```python
+filename = 'programming.txt'
+with open(filename, 'w') as file_object:
+    file_object.write("I love programming.")
+```
+
+`open()`的第二个参数指定模式：
+
+| 模式 | 含义 |
+|------|------|
+| `'r'` | 读取（默认） |
+| `'w'` | 写入（会覆盖原有内容） |
+| `'a'` | 追加（在末尾添加） |
+| `'r+'` | 读写 |
+
+> 注意：写入模式`'w'`如果文件已存在，会**清空**原有内容再写入。
+
+---
+
+## 04 异常处理：try/except
+
+程序运行中如果出错，Python会抛出异常。不想让程序崩溃，就用`try/except`捕获：
+
+```python
+try:
+    print(10 / 0)
+except ZeroDivisionError:
+    print("不能除以零！")
+```
+
+没有`try/except`，`10/0`会直接让程序崩溃并抛出`ZeroDivisionError` traceback。加了`try/except`后，程序可以优雅地处理错误。
+
+### 异常时仍然执行清理代码：finally
+
+```python
+try:
+    # 可能出错的代码
+    f = open('somefile.txt')
+except FileNotFoundError:
+    print("文件不存在")
+else:
+    # 没出错时才执行
+    print(f.read())
+finally:
+    # 不管出错还是没出错，都会执行
+    print("程序结束")
+```
+
+---
+
+## 05 json：保存用户数据
+
+程序关闭后数据就丢了？用`json`把数据存到文件里：
+
+```python
+import json
+
+# 保存数据
+numbers = [2, 3, 5, 7, 11, 13]
+filename = 'numbers.json'
+with open(filename, 'w') as f:
+    json.dump(numbers, f)
+
+# 读取数据
+with open(filename) as f:
+    saved_numbers = json.load(f)
+print(saved_numbers)  # [2, 3, 5, 7, 11, 13]
+```
+
+`json.dump()`存，`json.load()`取。数据以JSON格式存储，是纯文本，人类可读。
+
+---
+
+## 06 实际应用：用户输入记忆
+
+一个最简单的"记住用户名"程序：
+
+```python
+import json
+
+username = input("请输入你的名字: ")
+
+# 保存
+with open('username.json', 'w') as f:
+    json.dump(username, f)
+    print(f"已记住你的名字：{username}")
+
+# 下次运行时读取
+try:
+    with open('username.json') as f:
+        saved_name = json.load(f)
+        print(f"欢迎回来，{saved_name}！")
+except FileNotFoundError:
+    print("还没有保存过名字")
+```
+
+---
+
+## 本章小结
+
+| 知识点 | 核心用法 |
+|--------|---------|
+| `with open()` | 打开文件，自动关闭 |
+| `.read()` | 读取全部内容 |
+| `.write()` | 写入文件，模式`'w'`覆盖，`'a'`追加 |
+| `try/except` | 捕获异常，防止程序崩溃 |
+| `json.dump()` | 保存数据到文件 |
+| `json.load()` | 从文件读取数据 |
+
+---
+
+## 📌 下一章预告
+
+代码写完了，怎么保证它是对的？
+
+第11章「测试代码」，教我们用Python内置的`unittest`模块编写自动化测试。每修改一次代码，跑一遍测试用例，就能确认没有破坏原有功能。这是专业开发者的必备技能，也是让代码长期保持可靠的秘诀。

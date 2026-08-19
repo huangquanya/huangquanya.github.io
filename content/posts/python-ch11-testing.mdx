@@ -1,0 +1,189 @@
+---
+title: "Python测试代码：让代码自信地面对每一次修改"
+date: "2026-07-01"
+excerpt: "学会用 unittest 写自动化测试，掌握断言方法、测试类与 TDD，给代码上保险。"
+tags: ["Python", "Python入门"]
+---
+
+代码写完，怎么知道它真的对了？
+
+人工检查？跑一遍程序看看输出？太慢了，而且每次修改后再人工检查一遍，根本不现实。
+
+这一章教你用Python内置的`unittest`模块，写自动化测试用例，给代码上保险。
+
+---
+
+## 01 为什么需要测试？
+
+看一个具体场景：
+
+```python
+def get_formatted_name(first, last):
+    """合并名和姓"""
+    full_name = first + ' ' + last
+    return full_name.title()
+```
+
+这个函数看起来没问题，测试几个名字：
+
+```
+janis joplin → Janis Joplin ✓
+bob dylan → Bob Dylan ✓
+```
+
+但某天你决定让函数支持中间名，改成这样：
+
+```python
+def get_formatted_name(first, middle, last):  # 新增了middle参数！
+    full_name = first + ' ' + middle + ' ' + last
+    return full_name.title()
+```
+
+原来调用`get_formatted_name('janis', 'joplin')`的地方全部报错——少了`middle`参数。
+
+**测试能帮我们发现这些问题**，在用户发现之前。
+
+---
+
+## 02 第一个测试：unittest初体验
+
+```python
+import unittest
+from name_function import get_formatted_name
+
+class NamesTestCase(unittest.TestCase):
+    """测试name_function.py中的get_formatted_name()"""
+
+    def test_first_last_name(self):
+        """能够正确处理像Janis Joplin这样的姓名吗？"""
+        formatted_name = get_formatted_name('janis', 'joplin')
+        self.assertEqual(formatted_name, 'Janis Joplin')
+
+unittest.main()
+```
+
+运行后输出：
+
+```
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK
+```
+
+- `.` 表示测试通过
+- `assertEqual` 是断言方法，检查`formatted_name`是否等于`'Janis Joplin'`
+- 如果不相等，测试失败，并显示具体差异
+
+---
+
+## 03 断言方法一览
+
+`unittest.TestCase`提供了很多断言方法：
+
+| 方法 | 含义 |
+|------|------|
+| `assertEqual(a, b)` | 断言`a == b` |
+| `assertNotEqual(a, b)` | 断言`a != b` |
+| `assertTrue(x)` | 断言`x`为True |
+| `assertFalse(x)` | 断言`x`为False |
+| `assertIn(item, list)` | 断言item在list中 |
+| `assertNotIn(item, list)` | 断言item不在list中 |
+
+---
+
+## 04 测试多种场景：添加更多方法
+
+只测试一种情况不够，需要覆盖各种输入：
+
+```python
+class TestCities(unittest.TestCase):
+    """测试城市信息函数"""
+
+    def test_city_country(self):
+        """简单的城市国家格式"""
+        full = get_city_country('santiago', 'chile')
+        self.assertEqual(full, 'Santiago, Chile')
+
+    def test_city_country_population(self):
+        """带人口的格式"""
+        full = get_city_country('santiago', 'chile', 5000000)
+        self.assertEqual(full, 'Santiago, Chile - population 5000000')
+```
+
+每个`test_`开头的方法都是一个独立的测试用例。
+
+---
+
+## 05 测试类：更复杂场景
+
+学完第9章的类之后，也可以对类的方法进行测试：
+
+```python
+class TestAnonymousSurvey(unittest.TestCase):
+    """测试AnonymousSurvey类"""
+
+    def setUp(self):
+        """创建一个调查对象，供所有测试方法使用"""
+        question = "What language did you first learn to speak?"
+        self.my_survey = AnonymousSurvey(question)
+        self.responses = ['English', 'Spanish', 'Mandarin']
+
+    def test_store_single_response(self):
+        """测试单个答案被正确存储"""
+        self.my_survey.store_response(self.responses[0])
+        self.assertIn(self.responses[0], self.my_survey.responses)
+
+    def test_store_three_responses(self):
+        """测试三个答案被正确存储"""
+        for response in self.responses:
+            self.my_survey.store_response(response)
+        for response in self.responses:
+            self.assertIn(response, self.my_survey.responses)
+```
+
+注意`setUp()`方法：它会在每个测试方法运行前执行，创建好调查对象和测试数据，避免在每个测试方法里重复初始化代码。
+
+---
+
+## 06 测试驱动开发（TDD）：先写测试再写代码
+
+专业开发者常用的工作流：
+
+1. **先写测试**：明确知道函数应该做什么
+2. **运行测试**：必然失败（因为代码还没写）
+3. **写代码**：让测试通过
+4. **重构**：优化代码，保持测试通过
+
+这种工作流强迫你在动手之前先想清楚接口和预期行为，代码质量往往更高。
+
+---
+
+## 本章小结
+
+| 知识点 | 核心用法 |
+|--------|---------|
+| `unittest.TestCase` | 创建测试用例类 |
+| `assertEqual(a, b)` | 断言相等 |
+| `assertIn(a, b)` | 断言包含关系 |
+| `setUp()` | 每个测试前运行的初始化 |
+| `unittest.main()` | 运行测试 |
+| 测试驱动开发 | 先写测试，再写实现 |
+
+---
+
+## 🎉 全系列完结
+
+从第5章的if语句，到第11章的测试代码，《Python编程：从入门到实践》核心章节我们全部走了一遍。
+
+这一路我们学会了：
+- 程序流程控制（if语句）
+- 数据结构（字典）
+- 用户交互（input + while）
+- 代码复用（函数）
+- 面向对象（类）
+- 文件与持久化（文件和异常）
+- 代码质量保障（测试）
+
+**恭喜你，完成了Python基础的学习！**

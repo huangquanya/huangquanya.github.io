@@ -1,0 +1,159 @@
+---
+title: "Python下载数据：CSV和JSON，让程序吃真实数据"
+date: "2026-07-16"
+excerpt: "用 csv 和 json 模块处理真实数据，datetime 解析日期，Pygal 画世界人口地图。"
+tags: ["Python", "Python入门"]
+---
+
+上一章学会了画图，但数据都是自己造的——掷骰子、随机漫步。这一章换个口味：**从网上拿真实数据**来可视化。
+
+会碰到两个最常见的数据格式：**CSV**（表格数据）和 **JSON**（键值对数据）。它们是数据交换的通用语言，学会处理这两种格式，基本上大部分数据源都能搞定了。
+
+---
+
+## 01 CSV：表格数据的标配
+
+CSV 就是"用逗号分隔的表格"。Excel 能直接打开，Python 内置了 `csv` 模块来处理它，不用额外安装。
+
+```python
+import csv
+
+filename = 'sitka_weather_07-2014.csv'
+with open(filename, 'r', encoding='utf-8') as f:
+    reader = csv.reader(f)
+    header_row = next(reader)     # 先读表头
+    print(header_row)
+
+    for row in reader:
+        print(row)
+```
+
+`csv.reader()` 返回一个迭代器，`next()` 取第一行（表头），剩下的 `for` 遍历数据行。每行是一个字符串列表。
+
+---
+
+## 02 日期处理：datetime 模块
+
+CSV 里的日期是字符串，不能直接画在 x 轴上。得先转成 `datetime` 对象：
+
+```python
+from datetime import datetime
+
+first_date = datetime.strptime('2014-7-1', '%Y-%m-%d')
+```
+
+`strptime` 是 "string parse to datetime" 的缩写，格式码要背几个常用的：
+
+| 格式码 | 含义 | 示例 |
+|--------|------|------|
+| `%Y` | 四位年份 | 2024 |
+| `%m` | 两位月份 | 01-12 |
+| `%d` | 两位日期 | 01-31 |
+| `%b` | 月份缩写 | Jul |
+
+反过来，`strftime` 是 "datetime to string"，格式码一样。
+
+---
+
+## 03 画气温折线图
+
+有了日期和温度数据，直接画：
+
+```python
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 6))
+plt.plot(dates, highs, c='red')
+plt.title("Daily High Temperatures", fontsize=24)
+plt.tick_params(axis='both', labelsize=14)
+plt.show()
+```
+
+想让图表更好看？加个半透明填充：
+
+```python
+plt.fill_between(dates, highs, alpha=0.3)
+```
+
+`alpha` 控制透明度，0 是全透，1 是不透，0.3 是一个比较舒服的浅色。
+
+---
+
+## 04 实际数据不完美：处理缺失值
+
+书上的示例数据是干净的，但真实数据经常缺东西。比如某天的气温记录丢了，直接 `int(row[1])` 会炸：
+
+```python
+try:
+    high = int(row[1])
+except ValueError:
+    print(f'Missing data for {date}')
+else:
+    highs.append(high)
+```
+
+用 `try/except` 包一下，跳过有问题的行。**这是处理真实数据的常规操作**，别指望数据永远是干净的。
+
+---
+
+## 05 JSON：键值对结构的数据
+
+CSV 只能存表格（二维的），**JSON** 能存嵌套结构，灵活得多。Python 用 `json` 模块处理：
+
+```python
+import json
+
+with open('population_data.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)      # 直接解析成 Python 对象
+```
+
+`json.load()` 会把 JSON 数组变成 Python 列表，JSON 对象变成 Python 字典。
+
+一个常见的坑：JSON 里的数字可能是字符串格式，比如 `"Population": "1344130000"`，需要转一下：
+
+```python
+population = int(float(pop_dict['Population']))
+```
+
+先 `float` 再 `int`，因为有的数字带了小数点。
+
+---
+
+## 06 Pygal 世界地图
+
+这一章最酷的部分——用 Pygal 画世界人口地图：
+
+```python
+import pygal
+from pygal.maps.world import World
+
+wm = World()
+wm.title = 'World Population'
+wm.add('2010', {'cn': 1340000000, 'us': 310000000})
+wm.render_to_file('world_population.svg')
+```
+
+需要额外安装地图数据：
+
+```bash
+pip install pygal_maps_world
+```
+
+Pygal 用的是两字母 ISO 国别码（`cn`、`us`、`jp`），但数据源可能是三位数字码或中文国名，这时候需要一个映射函数把国名转成代码。
+
+---
+
+## 07 matplotlib vs Pygal，怎么选？
+
+| 特性 | matplotlib | Pygal |
+|------|-----------|-------|
+| 输出格式 | PNG（静态） | SVG（矢量，可交互） |
+| 地图支持 | 没有 | 内置世界地图 |
+| 鼠标悬停 | 不行 | 显示具体数值 |
+| 适用场景 | 通用图表 | 地理数据、人口图 |
+
+简单记：要好看静态图用 matplotlib，要交互和地图用 Pygal。
+
+---
+
+下一章更刺激——不再下载现成的数据文件了，我们直接**写代码去请求 Web API**，实时从网站获取最新数据。GitHub 热门仓库排行、Hacker News 最新文章，统统拿过来。

@@ -1,0 +1,177 @@
+---
+title: "Python类入门：面向对象编程的第一堂课"
+date: "2026-06-25"
+excerpt: "理解类与实例、__init__ 构造函数和 self，迈出面向对象编程第一步。"
+tags: ["Python", "Python入门"]
+---
+
+如果说函数是代码的复用单元，那类就是**把数据和行为打包成一个整体**的核心机制。
+
+类是面向对象编程（OOP）的基础。学完这一章，你会明白：为什么Python里"一切皆对象"？实例和类是什么关系？`self`为什么必不可少？
+
+这可能是一段时间内最重要的一章。
+
+---
+
+## 01 什么是类？先从生活例子说起
+
+把"类"想成**制造对象的模具**。
+
+比如Dog类，就是一套制造小狗的说明书。它规定了每只小狗有什么属性（名字、年龄），能做什么动作（蹲下、打滚）。
+
+根据Dog类，我们可以实例化出具体的小狗：
+
+```python
+class Dog():
+    """模拟小狗的简单类"""
+
+    def __init__(self, name, age):
+        """初始化属性name和age"""
+        self.name = name
+        self.age = age
+
+    def sit(self):
+        """模拟小狗收到命令后蹲下"""
+        print(self.name.title() + " is now sitting.")
+
+    def roll_over(self):
+        """模拟小狗打滚"""
+        print(self.name.title() + " rolled over!")
+```
+
+---
+
+## 02 __init__()：构造函数的秘密
+
+`__init__`是一个特殊方法，每当从类创建一个新实例时，Python会自动调用它。
+
+注意它的特点：
+
+```python
+def __init__(self, name, age):
+    self.name = name   # self.name是实例的属性
+    self.age = age     # name和age是传入的参数
+```
+
+关键理解：**`self`是什么？**
+
+`self`是指向实例本身的引用。让方法能够访问实例的属性。没有`self`，方法根本不知道它在操作哪个具体的实例。
+
+---
+
+## 03 创建实例
+
+```python
+my_dog = Dog('willie', 6)
+print("My dog's name is " + my_dog.name.title() + ".")
+print("My dog is " + str(my_dog.age) + " years old.")
+```
+
+输出：
+
+```
+My dog's name is Willie.
+My dog is 6 years old.
+```
+
+调用`Dog('willie', 6)`时，Python：
+1. 调用`__init__`方法
+2. 创建新实例，把`'willie'`赋给`self.name`，`6`赋给`self.age`
+3. 返回这个实例，存到变量`my_dog`里
+
+### 调用方法
+
+```python
+my_dog = Dog('willie', 6)
+my_dog.sit()
+my_dog.roll_over()
+```
+
+```
+Willie is now sitting.
+Willie rolled over!
+```
+
+### 创建多个实例
+
+```python
+my_dog = Dog('willie', 6)
+your_dog = Dog('lucy', 3)
+
+my_dog.sit()
+your_dog.sit()
+```
+
+即便两只狗名字年龄都一样，Python也会创建两个完全独立的实例。
+
+---
+
+## 04 使用属性和方法
+
+### 访问属性：实例.属性名
+
+```python
+my_dog.name       # 获取名字
+my_dog.age        # 获取年龄
+```
+
+### 修改属性
+
+```python
+my_dog.age = 7        # 直接改
+my_dog.name = 'max'   # 改名字
+```
+
+---
+
+## 05 类作为蓝图：最重要的认知
+
+> 类是模板/蓝图，实例是根据模板造出来的具体产品。
+
+这意味着：
+- 一个类可以创建任意多个实例
+- 每个实例互相独立
+- 修改一个实例的属性，不影响其他实例
+
+```python
+# 这是两个完全独立的对象
+my_dog = Dog('willie', 6)
+your_dog = Dog('lucy', 3)
+
+my_dog.age = 10  # 只改了my_dog
+print(your_dog.age)  # 输出 3，完全不受影响
+```
+
+---
+
+## 06 类的命名约定
+
+遵循约定，代码更易读：
+
+| 约定 | 含义 |
+|------|------|
+| `Dog`（首字母大写） | 类名 |
+| `my_dog`（小写） | 实例变量 |
+| `self.name` | 实例属性 |
+| `def sit(self)` | 方法 |
+
+---
+
+## 本章小结
+
+| 知识点 | 说明 |
+|--------|------|
+| `class` 定义类 | 类的名字通常首字母大写 |
+| `__init__()` | 构造函数，创建实例时自动调用 |
+| `self` | 指向实例本身的引用，必须是每个方法的第一个参数 |
+| 实例属性 | 通过`self.属性名`存储在每个实例中 |
+| 创建实例 | `my_dog = Dog('willie', 6)` |
+| 调用方法 | `my_dog.sit()` |
+
+---
+
+## 📌 下一章预告
+
+学会了类和数据组织，下一步是让程序能**持久化地读写数据**。
+
+第10章「文件和异常」，你会学到如何读取文件内容、如何处理程序运行中的错误（try/except）、以及如何使用`json`模块保存数据。程序重启后数据还在，这才是真正有用的应用。

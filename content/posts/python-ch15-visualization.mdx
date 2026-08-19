@@ -1,0 +1,176 @@
+---
+title: "Python数据可视化入门：用matplotlib和Pygal让数据讲故事"
+date: "2026-07-13"
+excerpt: "学 matplotlib 画折线图散点图、做随机漫步，用 Pygal 生成可交互直方图。"
+tags: ["Python", "Python入门"]
+---
+
+前14章我们一直在"练内功"——语法、函数、类、游戏开发……到了第15章，画风一转，Python开始帮你"说话"了。
+
+不是真的说话，而是用图表说话。这一章学两个可视化库：**matplotlib** 画静态图，**Pygal** 做可交互图。学完之后，你看数据的眼光都不一样了。
+
+---
+
+## 01 先把工具装好
+
+```bash
+pip install matplotlib
+pip install pygal
+```
+
+如果你的 Python 版本比较新（3.12+），matplotlib 装完可能有兼容警告，升级一下就行：
+
+```bash
+pip install matplotlib --upgrade
+```
+
+---
+
+## 02 折线图：最经典的数据表达
+
+matplotlib 的套路很简单——给数据，调参数，`plt.show()` 弹窗：
+
+```python
+import matplotlib.pyplot as plt
+
+squares = [1, 4, 9, 16, 25]
+input_values = [1, 2, 3, 4, 5]
+
+plt.figure(figsize=(10, 6))
+plt.plot(input_values, squares, linewidth=5)
+
+plt.title("Square Numbers", fontsize=24)
+plt.xlabel("Value", fontsize=14)
+plt.ylabel("Square of Value", fontsize=14)
+plt.tick_params(axis='both', labelsize=14)
+
+plt.show()
+```
+
+**有个坑要注意**：如果你只传了 `squares` 没传 `input_values`，x 轴会从 0 开始，图表变成 (0,1), (1,4), (2,9)… 完全歪了。
+
+---
+
+## 03 散点图：一眼看出相关性
+
+折线图适合有序数据，散点图适合看两个变量之间的关系：
+
+```python
+plt.scatter(x_values, y_values, s=100, c='red', edgecolor='none')
+```
+
+几个常用参数够应付大部分场景：
+
+| 效果 | 代码 |
+|------|------|
+| 单个点 | `plt.scatter(2, 4, s=200)` |
+| 多个点 | `plt.scatter(x_values, y_values, s=100)` |
+| 去掉黑边 | `edgecolor='none'` |
+| 颜色映射 | `c=y_values, cmap=plt.cm.Blues` |
+| 保存图片 | `plt.savefig('filename.png', bbox_inches='tight')` |
+
+颜色映射（colormap）是个很实用的功能——y 值越大颜色越深，等于图表自带第三维信息。
+
+---
+
+## 04 随机漫步：代码也能做行为艺术
+
+这节是个有趣的思维模型——**随机漫步**（Random Walk）。每一步往哪个方向走、走多远，都是随机的。
+
+```python
+from random import choice
+
+class RandomWalk:
+    def __init__(self, num_points=5000):
+        self.num_points = num_points
+        self.x_values = [0]
+        self.y_values = [0]
+
+    def fill_walk(self):
+        while len(self.x_values) < self.num_points:
+            x_direction = choice([1, -1])
+            x_distance = choice([0, 1, 2, 3, 4])
+            x_step = x_direction * x_distance
+
+            y_direction = choice([1, -1])
+            y_distance = choice([0, 1, 2, 3, 4])
+            y_step = y_direction * y_distance
+
+            # 拒绝原地踏步
+            if x_step == 0 and y_step == 0:
+                continue
+
+            next_x = self.x_values[-1] + x_step
+            next_y = self.y_values[-1] + y_step
+            self.x_values.append(next_x)
+            self.y_values.append(next_y)
+```
+
+可视化的时候，用颜色深浅表示步数顺序，起点标绿色、终点标红色：
+
+```python
+plt.figure(figsize=(10, 6))
+point_numbers = list(range(rw.num_points))
+plt.scatter(rw.x_values, rw.y_values, c=point_numbers,
+            cmap=plt.cm.Blues, edgecolor='none', s=1)
+plt.scatter(0, 0, c='green', s=100)
+plt.scatter(rw.x_values[-1], rw.y_values[-1], c='red', s=100)
+plt.show()
+```
+
+每次运行出来的图都不一样，很有意思。
+
+---
+
+## 05 掷骰子：用Pygal做可交互直方图
+
+matplotlib 出来的是静态 PNG，**Pygal** 出来的是 SVG——鼠标悬停能看到具体数值，还能嵌入网页。
+
+```python
+from random import randint
+import pygal
+
+class Die:
+    def __init__(self, num_sides=6):
+        self.num_sides = num_sides
+
+    def roll(self):
+        return randint(1, self.num_sides)
+
+die = Die()
+results = [die.roll() for _ in range(1000)]
+frequencies = [results.count(value) for value in range(1, die.num_sides + 1)]
+
+hist = pygal.Bar()
+hist.title = "Results of rolling one D6 1000 times."
+hist.x_labels = ['1', '2', '3', '4', '5', '6']
+hist.add('D6', frequencies)
+hist.render_to_file('die_visual.svg')
+```
+
+双骰子也简单——把两次掷的点数相加：
+
+```python
+die1 = Die()
+die2 = Die()
+results = [die1.roll() + die2.roll() for _ in range(1000)]
+```
+
+D6+D6 的总点数范围 2~12，但不是均匀分布——掷出 7 的概率最高（6 种组合），2 和 12 最低（各 1 种组合）。概率分布的直观体现。
+
+---
+
+## 06 怎么选：matplotlib 还是 Pygal？
+
+| 场景 | 选哪个 |
+|------|--------|
+| 快速探索数据、Jupyter 里看图 | matplotlib |
+| 需要交互、悬停看数值 | Pygal |
+| 保存高质量静态图片 | matplotlib |
+| 做世界地图、地理数据 | Pygal |
+
+别纠结，两个都会用就行。
+
+---
+
+下一章我们会更进一步——不再手动构造数据，而是从网上**下载真实数据**（CSV 和 JSON），然后可视化。天气数据、世界人口，都是用真实数据做图表，比掷骰子有意思多了。

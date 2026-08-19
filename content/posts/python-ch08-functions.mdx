@@ -1,0 +1,212 @@
+---
+title: "Python函数入门：让代码成为可复用的武器"
+date: "2026-06-22"
+excerpt: "搞懂函数定义、三种传参方式、返回值与模块化，让代码成为可复用的武器。"
+tags: ["Python", "Python入门"]
+---
+
+写代码最怕什么？重复。
+
+同样的逻辑复制粘贴三遍，改起来要改三个地方，还容易漏。函数的本质就是**给一段代码起个名字，下次想用的时候直接喊名字就行**。
+
+这一章，我们来彻底搞懂Python里的函数。
+
+---
+
+## 01 第一个函数：定义和调用
+
+```python
+def greet_user():
+    """显示简单的问候语"""
+    print("Hello!")
+
+greet_user()
+```
+
+输出：
+
+```
+Hello!
+```
+
+几个关键点：
+
+- `def`是Python里定义函数的关键字
+- `greet_user()`是函数名，括号里是参数（这里空着，说明这个函数不需要任何信息）
+- 三引号包裹的文本叫**文档字符串**，用来描述函数是干什么的
+- 最后一行`greet_user()`是**调用函数**，程序执行到这里就会跳进去执行函数体内的代码
+
+---
+
+## 02 给函数传参数：让它更通用
+
+光打印"Hello!"太死板了，让它能跟任何人打招呼：
+
+```python
+def greet_user(username):
+    """显示简单的问候语"""
+    print("Hello, " + username.title() + "!")
+
+greet_user('jesse')  # 输出: Hello, Jesse!
+greet_user('sarah')  # 输出: Hello, Sarah!
+```
+
+`username`是**形参**——函数定义时声明的变量；`'jesse'`是**实参**——调用函数时实际传递的值。
+
+> 记住：形参是函数定义时的占位符，实参是调用时的具体值。
+
+---
+
+## 03 三种传参方式，灵活应对各种场景
+
+### 位置实参：按顺序对应
+
+```python
+def describe_pet(animal_type, pet_name):
+    """显示宠物信息"""
+    print("\nI have a " + animal_type + ".")
+    print("My " + animal_type + "'s name is " + pet_name.title() + ".")
+
+describe_pet('hamster', 'harry')
+describe_pet('dog', 'willie')
+```
+
+按顺序一一对应，简单直接。但如果把顺序写反了：
+
+```python
+describe_pet('harry', 'hamster')
+# 输出: I have a harry. My harry's name is Hamster.
+# 一只叫Hamster的"harry"... 程序没错，但逻辑错了
+```
+
+### 关键字实参：指名道姓地传
+
+```python
+describe_pet(animal_type='hamster', pet_name='harry')
+describe_pet(pet_name='harry', animal_type='hamster')  # 顺序无所谓
+```
+
+用`key=value`的形式，明确告诉Python每个值给哪个参数，顺序颠倒也不会出错。
+
+### 默认值：简化常见调用
+
+如果大多数情况下动物类型都是狗，可以给一个默认值：
+
+```python
+def describe_pet(pet_name, animal_type='dog'):
+    """显示宠物信息"""
+    print("\nI have a " + animal_type + ".")
+    print("My " + animal_type + "'s name is " + pet_name.title() + ".")
+
+describe_pet('willie')              # 默认是狗
+describe_pet('harry', 'hamster')   # 特殊情况指定动物类型
+```
+
+> 注意：**没有默认值的参数必须放在前面**，Python按顺序解读位置实参。
+
+---
+
+## 04 返回值：函数不只是打印
+
+函数不仅能打印东西，还能**把结果返回给调用者**，让调用者决定怎么用。
+
+```python
+def get_formatted_name(first_name, last_name):
+    """返回整洁的姓名"""
+    full_name = first_name + ' ' + last_name
+    return full_name.title()
+
+musician = get_formatted_name('jimi', 'hendrix')
+print(musician)  # Jimi Hendrix
+```
+
+`return`语句把计算结果送回去，存到变量里，后续还能继续用。这比直接打印灵活太多了。
+
+---
+
+## 05 让函数返回字典：更复杂的数据结构
+
+```python
+def build_person(first_name, last_name, age=''):
+    """返回一个包含人物信息的字典"""
+    person = {'first': first_name, 'last': last_name}
+    if age:
+        person['age'] = age
+    return person
+
+musician = build_person('jimi', 'hendrix', age=27)
+print(musician)
+# {'first': 'jimi', 'last': 'hendrix', 'age': 27}
+```
+
+---
+
+## 06 传递列表：一次处理多个数据
+
+```python
+def greet_users(names):
+    """向列表中的每位用户发送问候"""
+    for name in names:
+        msg = "Hello, " + name.title() + "!"
+        print(msg)
+
+usernames = ['hannah', 'ty', 'margot']
+greet_users(usernames)
+```
+
+输出：
+
+```
+Hello, Hannah!
+Hello, Ty!
+Hello, Margot!
+```
+
+在函数内修改列表，调用者也能看到变化——这是**引用传递**的特性。
+
+---
+
+## 07 模块化：把函数存到独立文件
+
+函数写多了，可以把它们单独放进一个`.py`文件，需要时导入：
+
+```python
+# my_functions.py
+def make_pizza(size, *toppings):
+    """概括要制作的披萨"""
+    print("\nMaking a " + str(size) + "-inch pizza with the following toppings:")
+    for topping in toppings:
+        print("- " + topping)
+```
+
+```python
+# main.py
+from my_functions import make_pizza
+
+make_pizza(16, 'pepperoni')
+make_pizza(12, 'mushrooms', 'green peppers', 'extra cheese')
+```
+
+这种把函数按类别拆分到不同文件的实践，叫**模块化**。大型项目必备技能。
+
+---
+
+## 本章小结
+
+| 知识点 | 核心用法 |
+|--------|---------|
+| `def` 定义函数 | `def 函数名(参数):` |
+| 形参和实参 | 定义时的叫形参，调用时的叫实参 |
+| 位置实参 | 按顺序对应 |
+| 关键字实参 | `key=value`形式，不限顺序 |
+| 默认值 | `param='default'` |
+| `return` 返回值 | 把结果返回给调用者 |
+| 模块导入 | `from module import function` |
+
+---
+
+## 📌 下一章预告
+
+函数让我们能封装逻辑，但真正的面向对象思想从**类**开始。
+
+第9章「类」，是Python最重要的一章之一。我们会学到什么是对象、什么是属性和方法、`__init__`构造函数是什么、`self`又是什么。类是现代编程的基石，学完这一章，你才算真正入门Python。

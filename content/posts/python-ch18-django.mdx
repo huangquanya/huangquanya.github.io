@@ -1,0 +1,220 @@
+---
+title: "Python Django入门：从零搭建你的第一个Web应用"
+date: "2026-07-22"
+excerpt: "用 Django 从零搭建学习笔记网站：建项目、定义模型、创建页面、模板继承。"
+tags: ["Python", "Python入门"]
+---
+
+上一章我们用 Pygal 把 GitHub 上的 Python 热门项目可视化了出来。这一章，我们正式进入 Web 开发领域——用 Django 框架搭建一个"学习笔记"网站。
+
+说实话，刚开始学 Web 开发的时候，我对那些什么 MVC、MTV 的概念一头雾水。但 Django 的好处是，它把很多东西都帮你封装好了，你不需要从零开始写 HTTP 协议处理，只需要关注业务逻辑。本章我们会走完一个完整流程：建项目、定义数据模型、创建页面、显示数据。
+
+## 01 建立项目和虚拟环境
+
+做 Web 项目，第一件事就是创建虚拟环境。这玩意儿相当于给每个项目一个独立的"房间"，包版本互不干扰。
+
+```bash
+# 创建虚拟环境
+python -m venv ll_env
+
+# Windows 激活
+ll_env\Scripts\activate
+
+# 退出虚拟环境
+deactivate
+```
+
+激活后安装 Django：
+
+```bash
+pip install django
+```
+
+然后创建项目骨架：
+
+```bash
+django-admin startproject learning_log .
+```
+
+这行命令会生成一堆文件，核心是这几个：
+
+- `settings.py`：项目的配置中心，数据库、应用列表、静态文件路径都在这
+- `urls.py`：URL 路由表，决定访问哪个地址时调用哪个视图
+- `manage.py`：管理脚本，后续几乎所有操作都要通过它
+
+接着创建应用（一个 Django 项目可以包含多个应用）：
+
+```bash
+python manage.py startapp learning_logs
+```
+
+最后初始化数据库——Django 自带 SQLite，开箱即用：
+
+```bash
+python manage.py migrate
+```
+
+## 02 定义模型：Topic 和 Entry
+
+Django 的模型（Model）就是数据库表的 Python 表示。我们学习笔记需要两个表：主题（Topic）和条目（Entry）。
+
+```python
+# learning_logs/models.py
+from django.db import models
+
+class Topic(models.Model):
+    text = models.CharField(max_length=200)
+    date_added = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.text
+
+class Entry(models.Model):
+    topic = models.ForeignKey(Topic, on_delete=models.CASCADE)
+    text = models.TextField()
+    date_added = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = 'entries'
+
+    def __str__(self):
+        return f"{self.text[:50]}..."
+```
+
+这里有几个字段类型值得记住：
+
+- `CharField`：定长字符串，必须指定 `max_length`
+- `TextField`：无长度限制的文本，适合长内容
+- `DateTimeField`：日期时间，`auto_now_add=True` 表示自动记录创建时间
+- `ForeignKey`：外键，关联到另一个模型。`on_delete=models.CASCADE` 表示删除主题时，关联的条目也一起删掉
+
+模型定义完不能直接跑，需要两步迁移：
+
+```bash
+python manage.py makemigrations learning_logs   # 生成迁移文件
+python manage.py migrate                         # 应用到数据库
+```
+
+Django 还自带一个超方便的管理后台。先创建管理员账号：
+
+```bash
+python manage.py createsuperuser
+```
+
+然后在 `admin.py` 里注册模型，登录 `http://127.0.0.1:8000/admin/` 就能可视化地增删改查数据了。
+
+## 03 创建页面：主页
+
+Django 的页面遵循一个固定流程：**URL 路由 → 视图处理 → 模板渲染**。
+
+先看 URL 路由：
+
+```python
+# learning_log/urls.py
+from django.urls import path
+from learning_logs import views
+
+urlpatterns = [
+    path('', views.index, name='index'),
+]
+```
+
+`path('', views.index)` 表示访问根路径时，调用 `views.index` 函数。
+
+再看视图：
+
+```python
+# learning_logs/views.py
+from django.shortcuts import render
+
+def index(request):
+    return render(request, 'learning_logs/index.html')
+```
+
+`render()` 函数接收请求对象、模板路径，返回渲染好的 HTML 响应。
+
+最后是模板：
+
+```html
+<!-- learning_logs/templates/learning_logs/index.html -->
+<!DOCTYPE html>
+<html>
+<head><title>Learning Log</title></head>
+<body>
+    <h1>Learning Log</h1>
+    <p>Welcome to Learning Log!</p>
+</body>
+</html>
+```
+
+启动开发服务器：
+
+```bash
+python manage.py runserver
+```
+
+打开浏览器访问 `http://127.0.0.1:8000/`，就能看到你的第一个 Django 页面了。
+
+## 04 模板继承和动态页面
+
+写 HTML 最烦的就是每个页面都要重复写 `<head>`、`<body>` 这些结构。Django 的模板继承可以解决这个问题。
+
+先写一个父模板 `base.html`：
+
+```html
+<body>
+    {% block content %}{% endblock content %}
+</body>
+```
+
+子模板只需要填充 `content` 块：
+
+```html
+{% extends 'learning_logs/base.html' %}
+{% block content %}
+    <h1>Welcome!</h1>
+{% endblock content %}
+```
+
+接下来做一个显示所有主题的页面。视图里从数据库取数据：
+
+```python
+def topics(request):
+    topics_list = Topic.objects.order_by('date_added')
+    context = {'topics': topics_list}
+    return render(request, 'learning_logs/topics.html', context)
+```
+
+模板里用 `{% for %}` 循环渲染：
+
+```html
+{% for topic in topics %}
+    <li>{{ topic.text }} ({{ topic.date_added|date:'Y-m-d' }})</li>
+{% endfor %}
+```
+
+`date:'Y-m-d'` 是 Django 的模板过滤器，把日期格式化成 `2026-04-21` 这种形式。
+
+再做一个显示特定主题及条目的页面，URL 里带参数：
+
+```python
+path('topics/<int:topic_id>/', views.topic, name='topic'),
+```
+
+`<int:topic_id>` 会捕获 URL 中的整数，传给视图函数。视图里通过 `topic.entry_set.all()` 反向查询该主题下的所有条目——这是 Django 自动生成的关联管理器，不用自己写 SQL。
+
+## 05 MTV 架构速览
+
+Django 自称 MTV 架构，其实和常见的 MVC 是一回事，只是名字不同：
+
+| Django | 通用叫法 | 职责 |
+|--------|---------|------|
+| Model | Model | 数据结构、数据库操作 |
+| Template | View | 用户看到的 HTML |
+| View | Controller | 业务逻辑、路由分发 |
+
+理解这个对应关系后，再看其他 Web 框架（Flask、Spring 等）就会轻松很多。
+
+## 下章预告
+
+学习笔记现在有了主题和条目，但任何人都能访问所有数据。下一章我们给它加上**用户账户系统**：注册、登录、登出，以及每个用户只能看到自己数据的权限控制。这是 Web 应用的安全基石，别错过。

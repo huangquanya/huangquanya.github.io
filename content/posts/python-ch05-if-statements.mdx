@@ -1,0 +1,241 @@
+---
+title: "Python的if语句：让你的程序学会做选择"
+date: "2026-06-13"
+excerpt: "搞懂 if 语句与条件测试，用 if-elif-else 让程序根据不同条件做选择。"
+tags: ["Python", "Python入门"]
+---
+
+> 前面几章我们学会了循环，可以让程序一遍遍地执行。但程序有时候还需要"做选择"——根据不同情况走不同的路。这就是 if 语句的作用：让你的程序变得"聪明"。
+
+## if 语句是什么？
+
+简单说，if 语句就是"如果……那么……"。看个例子：
+
+```python
+cars = ['audi', 'bmw', 'subaru', 'toyota']
+
+for car in cars:
+    if car == 'bmw':
+        print(car.upper())   # 满足条件才执行这里
+    else:
+        print(car.title())   # 否则执行这里
+```
+
+运行结果：
+
+```
+Audi
+BMW
+Subaru
+Toyota
+```
+
+看到了吗？`bmw` 全部大写了，其他品牌首字母大写——因为只有满足 `car == 'bmw'` 的才会走上面的路。
+
+## 条件测试：真还是假？
+
+if 语句的核心是**条件测试**，它返回 `True`（真）或 `False`（假）。
+
+### 相等：一个等号 vs 两个等号
+
+```python
+# 一个等号 =  是赋值（把右边的东西塞给左边）
+# 两个等号 == 是发问（问：两边相等吗？）
+
+car = 'bmw'       # 赋值
+car == 'bmw'      # 比较，返回 True
+```
+
+### 不相等：`!=`
+
+```python
+car = 'audi'
+
+if car != 'bmw':
+    print("这不是宝马")
+```
+
+### 忽略大小写比较
+
+```python
+car = 'Audi'
+
+if car.lower() == 'audi':
+    print("是奥迪！")   # .lower() 转小写，不影响原变量
+```
+
+### 数字比较
+
+```python
+age = 18
+
+if age < 4:
+    print("免费入场")
+elif age < 18:
+    print("半价票")
+else:
+    print("全价票")
+```
+
+`elif` 是 "else if" 的缩写，可以理解成"否则如果"。
+
+### and 和 or：同时满足 or 任一满足
+
+```python
+age = 20
+
+# and：两个都要满足
+if age >= 18 and age < 65:
+    print("是成年人")
+
+# or：至少一个满足就行
+if age < 18 or age >= 65:
+    print("享受优惠")
+```
+
+### in 和 not in：查户口
+
+```python
+banned_users = ['alice', 'bob', 'charlie']
+user = 'dave'
+
+if user not in banned_users:
+    print(user + " 可以访问")
+else:
+    print(user + " 被禁止访问")
+```
+
+## if-elif-else：多条件分支
+
+根据多个条件走不同的路，按顺序检查，**第一个满足的条件就执行，剩下全部跳过**：
+
+```python
+age = 12
+
+if age < 4:
+    price = 0
+elif age < 18:
+    price = 5
+elif age < 65:
+    price = 10
+else:
+    price = 5   # 老年人也是5块
+
+print("Your admission cost is $" + str(price) + ".")
+```
+
+注意：如果所有条件都不满足，才会执行 `else`。
+
+## 布尔表达式：记录状态
+
+结果只有 True/False 的表达式，叫布尔表达式。常用来记录程序状态：
+
+```python
+game_active = True
+can_edit = False
+
+if game_active:
+    print("游戏正在进行中")
+```
+
+## if 和列表配合使用
+
+### 检查列表里的特殊元素
+
+```python
+requested_toppings = ['mushrooms', 'extra cheese']
+
+for topping in requested_toppings:
+    if topping == 'mushrooms':
+        print("抱歉，蘑菇卖完了")
+    else:
+        print("Adding " + topping + ".")
+```
+
+### 确定列表不是空的
+
+列表用在条件表达式里：**空列表 = False，非空列表 = True**
+
+```python
+requested_toppings = []
+
+if requested_toppings:   # 空列表为 False，跳过
+    for topping in requested_toppings:
+        print("Adding " + topping + ".")
+else:
+    print("Are you sure you want a plain pizza?")
+```
+
+### 用多个列表配合检查
+
+```python
+available_toppings = ['mushrooms', 'olives', 'green peppers', 'pepperoni', 'pineapple', 'extra cheese']
+requested_toppings = ['mushrooms', 'french fries', 'extra cheese']
+
+for topping in requested_toppings:
+    if topping in available_toppings:
+        print("Adding " + topping + ".")
+    else:
+        print("Sorry, we don't have " + topping + ".")
+```
+
+## 代码格式
+
+条件测试两边加空格，这是 PEP 8 的规范：
+
+```python
+# ✅ 推荐
+if age < 4:
+
+# ❌ 不推荐
+if age<4:
+```
+
+---
+
+## 📝 章后习题
+
+**5-1 条件测试**
+编写一系列条件测试，打印预测结果和实际结果，验证你的判断是否正确。
+
+**5-2 更多的条件测试**
+至少编写10个条件测试，涵盖：字符串比较、`lower()` 测试、数字比较、`and`/`or`、`in`/`not in`。
+
+**5-3 外星人颜色#1**
+创建 `alien_color` 变量，检查是否为 `'green'`，是则打印"获得5点"。
+
+**5-4 外星人颜色#2**
+使用 `if-else`：绿色打印"获得5点"，其他颜色打印"获得10点"。
+
+**5-5 外星人颜色#3**
+使用 `if-elif-else`：绿色5点、黄色10点、红色15点。
+
+**5-6 人生的不同阶段**
+根据年龄打印对应的阶段：婴儿(&lt;2岁)、学步儿童(2~4岁)、儿童(4~13岁)、青少年(13~20岁)、成年人(20~65岁)、老年人(65岁及以上)。
+
+**5-7 喜欢的水果**
+创建 `favorite_fruits` 列表，包含至少5种水果。编写5条 if 语句，检查列表中是否包含 `'banana'`、`'apple'` 等水果并打印相应消息。
+
+**5-8 以特殊方式跟管理员打招呼**
+创建用户名列表，如果其中有 `'admin'`，打印特殊问候语，如"Hello admin, would you like to see a status report?"。
+
+**5-9 处理没有用户的情形**
+检查用户名列表是否为空。为空时打印"我们需要找一些用户！"；不为空时正常打印问候。
+
+**5-10 检查用户名**
+创建当前用户名列表和新注册用户名列表，遍历新列表检查每个名字是否已被占用（不区分大小写）。
+
+**5-11 序数**
+数字 1~9 分别打印为 1st、2nd、3rd、4th……9th（其余数字正常打印）。
+
+**5-12 设置 if 语句的格式**
+审核你编写的程序，确保符合 PEP 8 格式规范：比较运算符两边加空格。
+
+**5-13 自己的想法**
+记录 3 个你希望用 if 语句来实现的程序想法，如"根据天气推荐出门装备""根据分数判断等级"等。
+
+---
+
+下期预告：第6章讲字典——如何用键值对存储结构化的数据？比列表更灵活，适合描述一个对象的多重属性。🔋
+
+*📖 内容整理自《Python编程：从入门到实践（第3版）》第5章*

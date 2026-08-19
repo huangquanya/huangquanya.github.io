@@ -1,0 +1,145 @@
+---
+title: "Python调API拿数据：让程序自动上网，GitHub热搜一把抓"
+date: "2026-07-19"
+excerpt: "用 requests 请求 Web API，解析 GitHub 与 Hacker News 数据，再画成可交互图表。"
+tags: ["Python", "Python入门"]
+---
+
+上一章是"下载现成数据"，这一章升级了——**程序自己上网请求数据**。
+
+API（Application Programming Interface）说白了就是网站提供给程序用的"数据窗口"。你不看网页，只拿数据。GitHub 的仓库信息、Hacker News 的文章列表，都可以通过 API 一行代码拿到。
+
+核心工具就一个库：**requests**。
+
+---
+
+## 01 requests：Python HTTP 请求的事实标准
+
+```bash
+pip install requests
+```
+
+安装完就能用了，调 API 比想象中简单：
+
+```python
+import requests
+
+url = 'https://api.github.com/search/repositories?q=language:python&sort=stars'
+r = requests.get(url)
+print(f'Status: {r.status_code}')     # 200 表示成功
+
+response_dict = r.json()
+print(f'Total repositories: {response_dict["total_count"]}')
+```
+
+`requests.get(url)` 就像用浏览器访问这个地址，但返回的不是 HTML 页面，而是纯数据（通常是 JSON）。`r.json()` 自动把 JSON 解析成 Python 字典，方便直接操作。
+
+---
+
+## 02 状态码：判断请求是否成功
+
+| 状态码 | 含义 |
+|--------|------|
+| 200 | 请求成功，数据到手 |
+| 403 | 被拒绝（通常是请求太频繁） |
+| 404 | 资源不存在（URL 写错了） |
+
+GitHub API 对未认证请求有限制：每小时最多 60 次。可以查看剩余次数：
+
+```python
+print(r.headers['X-RateLimit-Remaining'])
+```
+
+如果频率不够用，就加认证（Personal Access Token），能提到 5000 次/小时。
+
+---
+
+## 03 解析 GitHub 仓库数据
+
+API 返回的 JSON 是嵌套结构，一层套一层。仓库列表在 `items` 里，每个仓库又是字典套字典：
+
+```python
+response_dict = r.json()
+
+for repo_dict in response_dict['items']:
+    print(f"Name: {repo_dict['name']}")
+    print(f"Owner: {repo_dict['owner']['login']}")
+    print(f"Stars: {repo_dict['stargazers_count']}")
+    print(f"URL: {repo_dict['html_url']}")
+```
+
+注意 `repo_dict['owner']['login']`——`owner` 本身就是一个字典，包含用户名、头像等信息。
+
+---
+
+## 04 Pygal 可视化：GitHub 热门项目排行
+
+拿到数据之后，画个柱状图展示 Top 10：
+
+```python
+import pygal
+
+names = [repo_dict['name'] for repo_dict in repo_dicts[:10]]
+stars = [repo_dict['stargazers_count'] for repo_dict in repo_dicts[:10]]
+
+chart = pygal.Bar()
+chart.title = 'Most-Starred Python Projects on GitHub'
+chart.x_labels = names
+chart.add('Stars', stars)
+chart.render_to_file('python_repos.svg')
+```
+
+Pygal 的好处是 SVG 可以交互。还能加链接，点击柱子直接跳转到仓库：
+
+```python
+for repo_dict in repo_dicts[:10]:
+    chart.add(
+        repo_dict['name'],
+        [{
+            'value': repo_dict['stargazers_count'],
+            'label': repo_dict['description'],
+            'xlink': repo_dict['html_url']      # 点击跳转
+        }]
+    )
+```
+
+---
+
+## 05 Hacker News API：获取科技新闻
+
+GitHub 比较友好，API 文档规范。再看看另一个风格——Hacker News 的 API 非常简洁：
+
+```python
+# 获取最新文章 ID 列表
+url = 'https://hacker-news.firebaseio.com/v0/topstories.json'
+r = requests.get(url)
+story_ids = r.json()    # 返回 [35580378, 35579582, ...]
+
+# 按 ID 逐条获取详情
+story_url = f'https://hacker-news.firebaseio.com/v0/item/{story_ids[0]}.json'
+r = requests.get(story_url)
+story = r.json()
+print(story['title'])
+print(story.get('url', 'No URL'))
+```
+
+它的模式是"先拿 ID 列表，再按需拉详情"。`story.get('url')` 比 `story['url']` 更安全——有些"Ask HN"帖没有外链，用 `get` 不会报错。
+
+---
+
+## 06 requests vs urllib
+
+Python 内置了 `urllib`，但没人爱用它。对比一下：
+
+| 对比项 | requests | urllib |
+|--------|----------|--------|
+| 发请求 | `requests.get(url)` | `urllib.request.urlopen(url)` |
+| 解析JSON | `r.json()` | `json.loads(r.read())` |
+| 错误处理 | 异常友好 | 繁琐 |
+| 社区地位 | 事实标准 | 逐渐被替代 |
+
+如果你看到教程还在用 `urllib`，建议直接换 `requests`。
+
+---
+
+前17章，我们从变量和列表一路走到了 API 调用和数据可视化。Python 的基础和实战都过了一遍。下一章开始进入新领域——**Web 开发**，用 Django 框架搭建一个完整的博客系统。

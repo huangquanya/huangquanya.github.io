@@ -1,0 +1,254 @@
+---
+title: "Python Django用户系统：注册登录+数据隔离，一个都不能少"
+date: "2026-07-25"
+excerpt: "给学习笔记加上用户系统：注册登录登出、ModelForm 表单，以及数据隔离防越权。"
+tags: ["Python", "Python入门"]
+---
+
+上一章我们用 Django 搭好了学习笔记的骨架：主题、条目、页面展示都有了。但有个致命问题——任何人打开网站都能看到所有数据，也能随意增删改。这在真实世界里显然不行。
+
+这一章，我们给学习笔记加上完整的用户系统：注册、登录、登出，以及最关键的数据隔离——每个用户只能操作自己的笔记。
+
+## 01 表单：让用户输入数据
+
+Django 的表单系统非常省事。不用手动拼 HTML 的 `<input>` 标签，直接用 `ModelForm` 根据模型自动生成。
+
+```python
+# learning_logs/forms.py
+from django import forms
+from .models import Topic, Entry
+
+class TopicForm(forms.ModelForm):
+    class Meta:
+        model = Topic
+        fields = ['text']
+        labels = {'text': ''}
+
+class EntryForm(forms.ModelForm):
+    class Meta:
+        model = Entry
+        fields = ['text']
+        labels = {'text': ''}
+        widgets = {'text': forms.Textarea(attrs={'cols': 80})}
+```
+
+`widgets` 用来定制表单控件的表现形式。比如这里把 `text` 字段渲染成 80 列宽的多行文本框，而不是默认的单行输入框。
+
+视图里处理表单的逻辑有个固定套路：
+
+```python
+from django.shortcuts import redirect
+from .forms import TopicForm
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def new_topic(request):
+    if request.method != 'POST':
+        form = TopicForm()                  # GET 请求：给空表单
+    else:
+        form = TopicForm(request.POST)      # POST 请求：绑定用户数据
+        if form.is_valid():                  # 验证通过
+            form.save()                     # 保存到数据库
+            return redirect('learning_logs:topics')
+
+    context = {'form': form}
+    return render(request, 'learning_logs/new_topic.html', context)
+```
+
+注意 `@login_required` 装饰器——它确保只有登录用户才能访问这个页面。没登录的人会被自动重定向到登录页。
+
+编辑条目的逻辑和新建几乎一样，区别是 `instance=entry` 让表单预填充已有数据：
+
+```python
+@login_required
+def edit_entry(request, entry_id):
+    entry = Entry.objects.get(id=entry_id)
+    topic = entry.topic
+
+    if request.method != 'POST':
+        form = EntryForm(instance=entry)    # 预填充现有数据
+    else:
+        form = EntryForm(instance=entry, data=request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('learning_logs:topic', topic_id=topic.id)
+
+    context = {'entry': entry, 'topic': topic, 'form': form}
+    return render(request, 'learning_logs/edit_entry.html', context)
+```
+
+## 02 用户账户：Django 内置全套
+
+Django 自带了完整的用户认证系统，不用自己造轮子。
+
+先创建一个 `users` 应用：
+
+```bash
+python manage.py startapp users
+```
+
+### 登录
+
+```python
+# users/views.py
+from django.contrib.auth import authenticate, login
+
+def login_view(request):
+    if request.method == 'POST':
+        username = request.POST['username']
+        password = request.POST['password']
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            login(request, user)
+            return redirect('learning_logs:index')
+        else:
+            return render(request, 'users/login.html',
+                         {'error': '用户名或密码错误'})
+
+    return render(request, 'users/login.html')
+```
+
+`authenticate()` 验证用户名密码，返回 `User` 对象或 `None`。验证通过后调用 `login()` 把用户标记为已登录状态。
+
+### 登出
+
+```python
+from django.contrib.auth import logout
+
+def logout_view(request):
+    logout(request)
+    return redirect('learning_logs:index')
+```
+
+一行代码搞定。`logout()` 会清除用户的 session，让他变回"游客"。
+
+### 注册
+
+```python
+from django.contrib.auth.models import User
+
+def register(request):
+    if request.method == 'POST':
+        username = request.POST['username']
+        password = request.POST['password']
+        email = request.POST['email']
+
+        if User.objects.filter(username=username).exists():
+            return render(request, 'users/register.html',
+                         {'error': '用户名已被占用'})
+
+        user = User.objects.create_user(username, email, password)
+        login(request, user)              # 注册完自动登录
+        return redirect('learning_logs:index')
+
+    return render(request, 'users/register.html')
+```
+
+`create_user()` 会自动处理密码加密，不用自己调 hash 函数。注册成功后直接 `login()`，省去用户再输一遍密码的麻烦。
+
+模板里判断登录状态也很简单：
+
+```html
+{% if user.is_authenticated %}
+    <span>Hello, {{ user.username }}</span>
+    <a href="{% url 'users:logout' %}">退出</a>
+{% else %}
+    <a href="{% url 'users:login' %}">登录</a>
+    <a href="{% url 'users:register' %}">注册</a>
+{% endif %}
+```
+
+## 03 数据隔离：我的笔记只属于我
+
+用户系统最核心的问题不是"能不能登录"，而是"A 用户能不能看到 B 用户的数据"。
+
+### 限制访问
+
+所有需要保护的视图都加上 `@login_required`：
+
+```python
+@login_required
+def topics(request):
+    topics_list = Topic.objects.filter(owner=request.user).order_by('date_added')
+    context = {'topics': topics_list}
+    return render(request, 'learning_logs/topics.html', context)
+```
+
+关键变化：`Topic.objects.all()` 变成了 `Topic.objects.filter(owner=request.user)`。只查询当前登录用户的数据。
+
+### 将数据关联到用户
+
+在 Topic 模型里加一个外键指向 User：
+
+```python
+# models.py
+from django.contrib.auth.models import User
+
+class Topic(models.Model):
+    text = models.CharField(max_length=200)
+    date_added = models.DateTimeField(auto_now_add=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+```
+
+创建主题时，把当前用户设为主人：
+
+```python
+@login_required
+def new_topic(request):
+    # ...
+    if form.is_valid():
+        topic = form.save(commit=False)   # 先不保存到数据库
+        topic.owner = request.user         # 关联当前用户
+        topic.save()                       # 现在保存
+        return redirect('learning_logs:topics')
+```
+
+`commit=False` 这步很关键——它让 `form.save()` 返回一个尚未写入数据库的模型实例，这样我们才有机会修改 `owner` 字段。
+
+### 跨表查询
+
+条目（Entry）通过外键关联到主题，所以可以通过主题间接过滤：
+
+```python
+Entry.objects.filter(topic__owner=request.user)
+```
+
+`topic__owner` 是 Django 的跨表查询语法，双下划线表示"跳转关系"。
+
+### 保护已有数据
+
+光过滤查询还不够，得防止用户直接通过 URL 访问别人的数据：
+
+```python
+from django.shortcuts import get_object_or_404
+from django.http import Http404
+
+@login_required
+def topic(request, topic_id):
+    t = get_object_or_404(Topic, id=topic_id)
+    if t.owner != request.user:
+        raise Http404   # 不是自己的主题，返回404
+
+    entries = t.entry_set.all()
+    context = {'topic': t, 'entries': entries}
+    return render(request, 'learning_logs/topic.html', context)
+```
+
+`get_object_or_404()` 比 `Topic.objects.get()` 更安全——找不到记录时返回 404 而不是抛异常。后面的 `if t.owner != request.user` 是最后一道防线：**永远不要相信客户端传来的数据，所有权验证必须在服务端做。**
+
+## 04 小结
+
+这一章我们给学习笔记加上了完整的用户系统：
+
+- `ModelForm` 自动生成表单，省去手写 HTML
+- `@login_required` 保护敏感页面
+- `authenticate()` / `login()` / `logout()` 处理认证流程
+- `create_user()` 安全创建用户（自动加密密码）
+- `filter(owner=request.user)` 实现数据隔离
+- `commit=False` 在保存前修改模型字段
+- 服务端验证所有权，防止越权访问
+
+## 下章预告
+
+功能和安全都到位了，但界面还是纯 HTML 的"毛坯房"。下一章我们用 **Bootstrap** 给学习笔记穿上漂亮的外衣，然后把它部署到云服务器，让全世界的人都能访问你的学习笔记。
